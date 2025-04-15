@@ -135,7 +135,7 @@ export default function DetectionMap({
                 ${(detection.confidence * 100).toFixed(0)}%
               </div>
             </div>
-            <h3 class="font-bold text-sm mb-1">${detection.species || 'Unknown Species'}</h3>
+            <h3 class="font-bold text-sm mb-1">${detection.species || 'Snake Detected'}</h3>
             <p class="text-xs text-gray-600 mb-1">${new Date(detection.timestamp).toLocaleString()}</p>
             ${detection.notes ? `<p class="text-xs italic mt-1">${detection.notes}</p>` : ''}
             <button class="mt-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 w-full text-center">

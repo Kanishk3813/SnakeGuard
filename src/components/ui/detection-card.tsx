@@ -141,7 +141,7 @@ export default function DetectionCard({
         <div className="flex justify-between items-start mb-2">
           <div>
             <h3 className="font-semibold text-gray-900 text-lg">
-              {detection.species || 'Unknown Species'}
+              {detection.species || 'Snake Detected'}
             </h3>
             <div className="flex items-center text-gray-500 text-sm mt-1">
               <Clock className="h-3 w-3 mr-1" />

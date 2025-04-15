@@ -6,13 +6,13 @@ export default function Header() {
     <header className="bg-gradient-to-r from-green-800 to-green-900 text-white shadow-lg">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center space-x-3">
-          <Image
+          {/* <Image
             src="/snake-icon.svg"
             alt="SnakeGuard Logo"
             width={40}
             height={40}
             className="w-10 h-10"
-          />
+          /> */}
           <span className="text-2xl font-bold">SnakeGuard</span>
         </Link>
         
