@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Shield } from 'lucide-react'; // Using Shield icon from lucide-react for admin
 
 export default function Header() {
   return (
@@ -20,6 +21,13 @@ export default function Header() {
           <span className="hidden md:inline-block px-4 py-2 bg-green-700 rounded-full text-sm font-medium">
             System Active
           </span>
+          
+          {/* Admin Login Link */}
+          <Link href="/admin/login" className="p-2 rounded-full hover:bg-green-700 transition-colors flex items-center">
+            <Shield className="h-6 w-6" />
+            <span className="hidden md:inline-block ml-1">Admin</span>
+          </Link>
+          
           <div className="relative">
             <button className="p-2 rounded-full hover:bg-green-700 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

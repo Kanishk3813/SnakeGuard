@@ -3,6 +3,7 @@ import { SnakeDetection } from '@/types';
 import { formatDate, getTimeAgo, getConfidenceColor } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Clock, AlertCircle, Check, Map, FileText, ChevronDown, ChevronUp, AlertTriangle, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface DetectionCardProps {
   detection: SnakeDetection;
@@ -228,9 +229,16 @@ export default function DetectionCard({
               <AlertCircle className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
               <div>
                 <div className="font-medium text-gray-700 mb-1">Status</div>
-                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${detection.processed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                  {detection.processed ? 'Processed' : 'Pending Review'}
-                </div>
+                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium 
+      ${detection.status === 'captured' ? 'bg-green-100 text-green-800' : 
+        detection.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+        detection.status === 'false_alarm' ? 'bg-gray-100 text-gray-800' :
+        'bg-yellow-100 text-yellow-800'}`}>
+      {detection.status === 'captured' ? 'Snake Captured' : 
+        detection.status === 'reviewed' ? 'Reviewed' :
+        detection.status === 'false_alarm' ? 'False Alarm' :
+        'Pending Review'}
+    </div>
               </div>
             </div>
           </div>
@@ -254,14 +262,13 @@ export default function DetectionCard({
             </div>
             <div className="flex-1 min-h-0 p-1 bg-gray-100">
               <div className="h-full w-full relative rounded overflow-hidden" style={{ minHeight: "400px" }}>
-                {/* Map container for Leaflet */}
                 <div ref={mapContainerRef} className="w-full h-full" />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 flex flex-wrap gap-3">
               <div className="flex items-center text-sm text-gray-600">
                 <MapPin className="h-4 w-4 mr-1 text-gray-500" />
-                <span>{`${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}`}</span>
+                <span>{`${detection.latitude?.toFixed(6) || 'N/A'}, ${detection.longitude?.toFixed(6) || 'N/A'}`}</span>
               </div>
               
               <a 
