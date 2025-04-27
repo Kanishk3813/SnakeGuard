@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
         const totalCount = allDetections?.length || 0;
         
         const recentData = allDetections
-          ?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          ?.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
           .slice(0, 5) || [];
 
         console.log("Detections retrieved:", allDetections?.length);
@@ -335,7 +335,7 @@ export default function AdminDashboardPage() {
                       {detection.species || "Unknown Species"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(detection.timestamp || detection.created_at)}
+                      {formatDate(detection.timestamp || detection.updated_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

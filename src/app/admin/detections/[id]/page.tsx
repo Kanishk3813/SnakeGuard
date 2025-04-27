@@ -17,7 +17,7 @@ interface DetectionDetails {
   id: string;
   image_url: string;
   timestamp: string;
-  created_at: string;
+  updated_at: string;
   species: string | null;
   confidence: number;
   latitude: number | null;
@@ -422,14 +422,13 @@ L.marker([detection.latitude!, detection.longitude!])
                   </div>
                 </div>
 
-                {/* Created At */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Record Created
                   </label>
                   <div className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 border border-gray-200 flex items-center">
                     <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                    {formatDate(detection.created_at)}
+                    {formatDate(detection.updated_at)}
                   </div>
                 </div>
 
