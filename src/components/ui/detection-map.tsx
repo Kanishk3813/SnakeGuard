@@ -20,15 +20,12 @@ export default function DetectionMap({
   const markersRef = useRef<any[]>([]);
   const popupsRef = useRef<any[]>([]);
   
-  // Load Leaflet dynamically on client side
   useEffect(() => {
     let isMounted = true;
     
     const loadLeaflet = async () => {
       try {
-        // Only import if we're in the browser
         if (typeof window !== 'undefined') {
-          // Load CSS
           if (!document.querySelector('link[href*="leaflet.css"]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
