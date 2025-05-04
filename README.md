@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SnakeVision: IoT-Enabled Snake Detection System
 
-## Getting Started
 
-First, run the development server:
+## 🐍 About the Project
+
+SnakeVision is an IoT-enabled continuous snake detection system with GPS-based alerting designed for wildlife conservation and human safety. This project leverages YOLOv8n, a lightweight object detection model, to identify snakes in real-time from camera feeds and alert authorities with precise location data.
+
+### 📊 Key Performance Metrics
+
+- **mAP@0.5:** 90.2%
+- **F1-Score:** 84%
+- **Precision:** 89% 
+- **Recall:** 84%
+- **Inference Speed:** 15-20 FPS on Raspberry Pi
+
+## 🎯 Features
+
+- **Real-time Snake Detection:** Uses YOLOv8n model for efficient, accurate detection
+- **Edge Computing:** Optimized for deployment on Raspberry Pi devices
+- **GPS Integration:** Geo-tags each detection for precise location tracking
+- **Automated Alerting:** Sends notifications to forest officials and local authorities
+- **Web Dashboard:** Interactive interface for monitoring detections and activity patterns
+- **Offline Capability:** Works without internet connectivity in remote areas
+
+## 🔧 Tech Stack
+
+### Hardware
+- Raspberry Pi 4B
+- Pi Camera Module v2
+- GPS Module (NEO-6M)
+
+### Software
+- **Model:** YOLOv8n (Ultralytics)
+- **Backend:** Node.js, Flask API
+- **Frontend:** Next.js, Tailwind CSS
+- **Database:** Supabase (PostgreSQL)
+- **Image Processing:** OpenCV
+- **Deployment:** Vercel
+
+## 📋 Installation
+
+### Prerequisites
+- Python 3.8+
+- Raspberry Pi with Raspberry Pi OS
+- Node.js 16+
+- Git
+
+### Setting up the detection system
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repository
+git clone https://github.com/Kanishk3813/SnakeGuard.git
+cd snake-vision
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install required packages
+pip install -r requirements.txt
+
+# Download the trained model
+https://drive.google.com/file/d/1-GXW2JWcPoVCP5WajGWTiDJq1hhYzElS/view?usp=sharing
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env file with your Supabase credentials
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Setting up the dashboard
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Navigate to the dashboard directory
+cd dashboard
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Install dependencies
+npm install
 
-## Learn More
+# Start the development server
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🚀 Usage
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Running the detection system
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+python snake_detection.py
+```
 
-## Deploy on Vercel
+### Accessing the dashboard
+Visit `http://localhost:3000` in your browser to access the local development server.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+For production deployment, visit our hosted version at: `https://snakeguard.vercel.app/`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔄 System Architecture
+
+![System Architecture](/Architecture_Snake.png)
+
+The system follows this workflow:
+1. Camera captures video feed
+2. YOLOv8n model processes frames in real-time
+3. When a snake is detected, the system:
+   - Captures the image with bounding box
+   - Records GPS coordinates
+   - Uploads data to Supabase
+   - Sends alert to authorities
+4. Dashboard displays detection data for monitoring
+
+## 📊 Results and Impact
+
+- Achieved 90.2% mAP@0.5 on a diverse dataset of 25,000+ snake images
+- Real-world testing in varied environments showed strong performance across different lighting conditions
+- Addresses UN Sustainable Development Goal 15 (Life on Land) by promoting human-wildlife coexistence
+
+## 🔮 Future Enhancements
+
+- Thermal camera integration for improved night detection
+- LoRaWAN or satellite communication for ultra-remote areas
+- Mobile app interface for field personnel
+- Species classification to identify venomous vs. non-venomous snakes
+- Solar-powered setup for autonomous operation
+- Active learning for continuous model improvement
+
+## 👥 Contributors
+
+- [Kanishk Reddy](https://github.com/Kanishk3813) 
+- [Sujal Limje](https://github.com/sujallimje)
+
+## 🙏 Acknowledgements
+
+- Dr. Sivakumar B, Associate Professor, Department of Computing Technologies, SRM Institute of Science and Technology
+- SRM Institute of Science and Technology, Faculty of Engineering and Technology
+- All staff members of Department of Computing Technologies, School of Computing
+
+
+*This project was developed as part of the Bachelor of Technology in Computer Science Engineering at SRM Institute of Science and Technology.*
