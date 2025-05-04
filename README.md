@@ -1,9 +1,9 @@
-# SnakeVision: IoT-Enabled Snake Detection System
+# SnakeGuard: IoT-Enabled Snake Detection System
 
 
 ## 🐍 About the Project
 
-SnakeVision is an IoT-enabled continuous snake detection system with GPS-based alerting designed for wildlife conservation and human safety. This project leverages YOLOv8n, a lightweight object detection model, to identify snakes in real-time from camera feeds and alert authorities with precise location data.
+SnakeGuard is an IoT-enabled continuous snake detection system with GPS-based alerting designed for wildlife conservation and human safety. This project leverages YOLOv8n, a lightweight object detection model, to identify snakes in real-time from camera feeds and alert authorities with precise location data.
 
 ### 📊 Key Performance Metrics
 
