@@ -23,4 +23,64 @@ export interface SnakeDetection {
     date: string;
     detections: number;
   }
+
+  export interface UserSettings {
+    id?: string;
+    user_id?: string;
+    // Notification Settings
+    email_notifications: boolean;
+    sms_notifications: boolean;
+    push_notifications: boolean;
+    notification_frequency: 'realtime' | 'hourly' | 'daily' | 'weekly';
+    high_confidence_only: boolean;
+    // Display Preferences
+    theme: 'light' | 'dark' | 'auto';
+    items_per_page: number;
+    default_map_zoom: number;
+    show_distance: boolean;
+    // Detection Preferences
+    min_confidence_threshold: number;
+    filter_by_species: string[];
+    location_radius: number;
+    // Alert Settings
+    alert_radius: number;
+    alert_high_risk_only: boolean;
+    // Privacy
+    share_location: boolean;
+    // Created/Updated
+    created_at?: string;
+    updated_at?: string;
+  }
+
+  export interface SystemSettings {
+    id?: string;
+    // Detection Settings
+    confidence_threshold: number;
+    detection_cooldown: number;
+    max_detections_per_hour: number;
+    // Alert Configuration
+    alert_enabled: boolean;
+    alert_email_recipients: string[];
+    alert_sms_recipients: string[];
+    alert_webhook_url?: string;
+    // Model Settings
+    model_version: string;
+    model_update_auto: boolean;
+    // Storage Settings
+    image_retention_days: number;
+    auto_cleanup: boolean;
+    // API Settings
+    api_rate_limit: number;
+    api_key_expiry_days: number;
+    // Integration Settings
+    weather_api_enabled: boolean;
+    weather_api_key?: string;
+    twilio_enabled: boolean;
+    twilio_account_sid?: string;
+    twilio_auth_token?: string;
+    twilio_phone_number?: string;
+    // Created/Updated
+    created_at?: string;
+    updated_at?: string;
+  }
   

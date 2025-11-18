@@ -33,6 +33,7 @@ export default function DetectionCard({
 }: DetectionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -153,14 +154,24 @@ export default function DetectionCard({
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200">
       <div className="relative">
-        <div className="aspect-video relative overflow-hidden group">
-          <Image
-            src={detection.image_url}
-            alt={`Snake detected at ${formatDate(detection.timestamp)}`}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
+        <div className="aspect-video relative overflow-hidden group bg-gray-200">
+          {!imageError && detection.image_url ? (
+            <Image
+              src={detection.image_url}
+              alt={`Snake detected at ${formatDate(detection.timestamp)}`}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <div className="text-center p-4">
+                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">Image not available</p>
+              </div>
+            </div>
+          )}
           <div className="absolute top-2 left-2 flex items-center space-x-1 bg-black bg-opacity-70 text-white px-2 py-1 rounded-full text-xs backdrop-blur-sm">
             <Clock className="h-3 w-3" />
             <span>{getTimeAgo(detection.timestamp)}</span>
