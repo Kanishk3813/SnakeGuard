@@ -30,59 +30,60 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        console.log("Supabase client:", supabase);
-        
-        console.log("Testing basic query...");
-        const testQuery = await supabase.from("snake_detections").select("id").limit(1);
-        console.log("Test query result:", testQuery);
-        
-        if (testQuery.error) {
-          console.error("Basic query failed:", testQuery.error);
-          setDebugInfo(`Connection error: ${JSON.stringify(testQuery.error)}`);
-          setLoading(false);
-          return;
-        }
-        
-        const { data: allDetections, error: detectionsError } = await supabase
-          .from("snake_detections")
-          .select("*");
+        // Fetch stats using count queries (much faster) - run in parallel
+        const [
+          totalResult,
+          pendingResult,
+          capturedResult,
+          falseAlarmResult,
+          usersResult,
+          recentResult
+        ] = await Promise.all([
+          // Total detections count
+          supabase
+            .from("snake_detections")
+            .select("*", { count: 'exact', head: true }),
           
-        if (detectionsError) {
-          console.error("Error fetching all detections:", detectionsError);
-          setDebugInfo(`Detections error: ${JSON.stringify(detectionsError)}`);
-          setLoading(false);
-          return;
-        }
-        
-        const { data: usersData, error: usersError } = await supabase
-          .from("users")
-          .select("*");
+          // Pending review count
+          supabase
+            .from("snake_detections")
+            .select("*", { count: 'exact', head: true })
+            .eq("status", "pending"),
           
-        if (usersError) {
-          console.error("Error fetching users:", usersError);
-        }
-        
-        const pendingCount = allDetections?.filter(d => d.status === "pending").length || 0;
-        const capturedCount = allDetections?.filter(d => d.status === "captured").length || 0;
-        const falseAlarmCount = allDetections?.filter(d => d.status === "false_alarm").length || 0;
-        const totalCount = allDetections?.length || 0;
-        
-        const recentData = allDetections
-          ?.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-          .slice(0, 5) || [];
-
-        console.log("Detections retrieved:", allDetections?.length);
-        console.log("Users retrieved:", usersData?.length);
+          // Captured count
+          supabase
+            .from("snake_detections")
+            .select("*", { count: 'exact', head: true })
+            .eq("status", "captured"),
+          
+          // False alarms count
+          supabase
+            .from("snake_detections")
+            .select("*", { count: 'exact', head: true })
+            .eq("status", "false_alarm"),
+          
+          // Total users count (using user_profiles table)
+          supabase
+            .from("user_profiles")
+            .select("*", { count: 'exact', head: true }),
+          
+          // Recent detections (only fetch 5 most recent)
+          supabase
+            .from("snake_detections")
+            .select("id, image_url, species, timestamp, updated_at, status")
+            .order("updated_at", { ascending: false })
+            .limit(5)
+        ]);
         
         setStats({
-          totalDetections: totalCount,
-          pendingReview: pendingCount,
-          capturedSnakes: capturedCount,
-          falseAlarms: falseAlarmCount,
-          totalUsers: usersData?.length || 0,
+          totalDetections: totalResult.count || 0,
+          pendingReview: pendingResult.count || 0,
+          capturedSnakes: capturedResult.count || 0,
+          falseAlarms: falseAlarmResult.count || 0,
+          totalUsers: usersResult.count || 0,
         });
         
-        setRecentDetections(recentData);
+        setRecentDetections(recentResult.data || []);
         
       } catch (error) {
         console.error("Unexpected error in fetchDashboardData:", error);
