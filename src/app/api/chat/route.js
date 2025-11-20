@@ -6,7 +6,10 @@ export async function POST(request) {
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      throw new Error('Missing Gemini API key');
+      return NextResponse.json({ 
+        error: 'Missing Gemini API key',
+        details: 'Please set GEMINI_API_KEY in your .env.local file'
+      }, { status: 500 });
     }
     
     const lastUserMessage = messages[messages.length - 1].content;
@@ -25,8 +28,9 @@ export async function POST(request) {
       "Provide information about snakes, detection systems, and safety measures.\n\n" +
       lastUserMessage;
     
+    // Use REST API (more reliable than SDK)
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
@@ -41,9 +45,12 @@ export async function POST(request) {
     );
     
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       console.error('Gemini API error:', errorData);
-      throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+      return NextResponse.json({ 
+        error: 'Gemini API request failed',
+        details: errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
+      }, { status: 500 });
     }
     
     const data = await response.json();
@@ -54,7 +61,10 @@ export async function POST(request) {
     }
     
     if (!textResponse) {
-      throw new Error('Empty response from Gemini API');
+      return NextResponse.json({ 
+        error: 'Empty response from Gemini API',
+        details: 'The API returned no text content'
+      }, { status: 500 });
     }
     
     return NextResponse.json({ response: textResponse });
@@ -62,7 +72,7 @@ export async function POST(request) {
     console.error('Error processing chat request:', error);
     return NextResponse.json({ 
       error: 'Error processing your request', 
-      details: error.message 
+      details: error.message || 'Unknown error occurred'
     }, { status: 500 });
   }
 }

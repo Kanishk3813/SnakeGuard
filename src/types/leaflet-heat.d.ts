@@ -1,0 +1,22 @@
+declare module 'leaflet.heat' {
+  import * as L from 'leaflet';
+  
+  namespace HeatLayer {
+    interface HeatLayerOptions {
+      minOpacity?: number;
+      maxZoom?: number;
+      radius?: number;
+      blur?: number;
+      max?: number;
+      gradient?: { [key: number]: string };
+    }
+  }
+  
+  function heatLayer(
+    latlngs: Array<[number, number, number]>,
+    options?: HeatLayer.HeatLayerOptions
+  ): any;
+  
+  export = heatLayer;
+}
+

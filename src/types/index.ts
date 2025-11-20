@@ -7,9 +7,24 @@ export interface SnakeDetection {
   longitude: number;
   processed: boolean;
   species?: string;
+  venomous?: boolean;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  classification_confidence?: number;
+  classification_description?: string;
+  classification_first_aid?: string;
+  classified_at?: string;
   notes?: string;
   created_at: string;
   status?: 'pending' | 'reviewed' | 'captured' | 'false_alarm';
+}
+
+export interface ClassificationResult {
+  species: string;
+  venomous: boolean;
+  confidence: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  description?: string;
+  firstAid?: string;
 }
 
   export interface DashboardStats {
