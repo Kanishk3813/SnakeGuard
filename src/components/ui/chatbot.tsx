@@ -50,20 +50,32 @@ export default function ChatBot() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        let errorMessage = 'Failed to get response';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.details || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
       
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
       setMessages(prev => [
         ...prev, 
-        { role: 'assistant', content: data.response }
+        { role: 'assistant', content: data.response || 'Sorry, I could not generate a response.' }
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error with chat request:', error);
+      const errorMessage = error.message || 'Sorry, I encountered an error. Please try again.';
       setMessages(prev => [
         ...prev, 
-        { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
+        { role: 'assistant', content: `Error: ${errorMessage}` }
       ]);
     } finally {
       setIsLoading(false);

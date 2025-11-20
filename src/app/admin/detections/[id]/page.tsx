@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { 
   AlertCircle, Clock, MapPin, Check, X, ChevronLeft, 
-  Edit, Save, Trash2, FileText, ShieldCheck
+  Edit, Save, Trash2, FileText, ShieldCheck, Sparkles, AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate, getConfidenceColor } from '@/lib/utils';
@@ -25,6 +25,12 @@ interface DetectionDetails {
   processed: boolean;
   notes: string | null;
   status: DetectionStatus;
+  venomous?: boolean | null;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical' | null;
+  classification_confidence?: number | null;
+  classification_description?: string | null;
+  classification_first_aid?: string | null;
+  classified_at?: string | null;
 }
 
 export default function DetectionDetailsPage() {
@@ -42,6 +48,8 @@ export default function DetectionDetailsPage() {
   const [deleting, setDeleting] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapInstance, setMapInstance] = useState<any>(null);
+  const [classifying, setClassifying] = useState(false);
+  const [classificationError, setClassificationError] = useState<string | null>(null);
 
   const fetchDetectionDetails = async () => {
     try {
@@ -141,6 +149,63 @@ export default function DetectionDetailsPage() {
       console.error('Error deleting detection:', err);
       setError('Failed to delete detection');
       setDeleting(false);
+    }
+  };
+
+  const handleClassify = async () => {
+    if (!detection) return;
+    
+    try {
+      setClassifying(true);
+      setClassificationError(null);
+      
+      const response = await fetch('/api/classify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageUrl: detection.image_url,
+          detectionId: detection.id
+        })
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Classification failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const { classification } = await response.json();
+      
+      // Update detection with classification results
+      const { error: updateError } = await supabase
+        .from('snake_detections')
+        .update({
+          species: classification.species,
+          venomous: classification.venomous,
+          risk_level: classification.riskLevel,
+          classification_confidence: classification.confidence,
+          classification_description: classification.description,
+          classification_first_aid: classification.firstAid,
+          classified_at: new Date().toISOString()
+        })
+        .eq('id', detection.id);
+
+      if (updateError) throw updateError;
+
+      // Refresh detection data
+      await fetchDetectionDetails();
+    } catch (err: any) {
+      console.error('Classification error:', err);
+      setClassificationError(err.message || 'Failed to classify snake');
+    } finally {
+      setClassifying(false);
     }
   };
 
@@ -264,6 +329,23 @@ L.marker([detection.latitude!, detection.longitude!])
         <div className="flex space-x-3">
           {!editMode ? (
             <>
+              <button
+                onClick={handleClassify}
+                disabled={classifying}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                {classifying ? (
+                  <>
+                    <div className="h-4 w-4 mr-1 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                    Classifying...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {detection.venomous !== null ? 'Re-classify' : 'Classify Species'}
+                  </>
+                )}
+              </button>
               <button
                 onClick={() => setEditMode(true)}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -422,16 +504,6 @@ L.marker([detection.latitude!, detection.longitude!])
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Record Created
-                  </label>
-                  <div className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 border border-gray-200 flex items-center">
-                    <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                    {formatDate(detection.updated_at)}
-                  </div>
-                </div>
-
                 {/* Notes */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -467,6 +539,143 @@ L.marker([detection.latitude!, detection.longitude!])
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* AI Classification */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
+                Classification
+              </h2>
+              {detection.classified_at && (
+                <span className="text-xs text-gray-500">
+                  Classified {formatDate(detection.classified_at)}
+                </span>
+              )}
+            </div>
+            <div className="p-4">
+              {classificationError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-800">{classificationError}</p>
+                </div>
+              )}
+              
+              {detection.venomous !== null && detection.venomous !== undefined ? (
+                <div className="space-y-4">
+                  {/* Species */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Identified Species
+                    </label>
+                    <div className="text-sm font-semibold text-gray-900 bg-gray-50 rounded-md px-3 py-2 border border-gray-200">
+                      {detection.species || 'Unknown'}
+                    </div>
+                  </div>
+
+                  {/* Venomous Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Venomous Status
+                    </label>
+                    <div className={`text-sm rounded-md px-3 py-2 inline-flex items-center font-medium ${
+                      detection.venomous 
+                        ? 'bg-red-100 text-red-800 border-red-300' 
+                        : 'bg-green-100 text-green-800 border-green-300'
+                    } border`}>
+                      {detection.venomous ? (
+                        <>
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          Venomous - High Risk
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Non-venomous - Low Risk
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Risk Level */}
+                  {detection.risk_level && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Risk Level
+                      </label>
+                      <div className={`text-sm rounded-md px-3 py-2 inline-flex items-center font-medium ${
+                        detection.risk_level === 'critical' ? 'bg-red-200 text-red-900 border-red-400' :
+                        detection.risk_level === 'high' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                        detection.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                        'bg-green-100 text-green-800 border-green-300'
+                      } border`}>
+                        {detection.risk_level.toUpperCase()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Classification Confidence */}
+                  {detection.classification_confidence !== null && detection.classification_confidence !== undefined && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Classification Confidence
+                      </label>
+                      <div className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 border border-gray-200">
+                        {(detection.classification_confidence * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {detection.classification_description && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <div className="text-sm text-gray-700 bg-gray-50 rounded-md px-3 py-2 border border-gray-200">
+                        {detection.classification_description}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* First Aid */}
+                  {detection.venomous && detection.classification_first_aid && (
+                    <div>
+                      <label className="block text-sm font-medium text-red-700 mb-1">
+                        ⚠️ First Aid Guidance
+                      </label>
+                      <div className="text-sm text-red-800 bg-red-50 rounded-md px-3 py-2 border border-red-200">
+                        {detection.classification_first_aid}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Sparkles className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500 mb-4">
+                    This detection hasn't been classified yet.
+                  </p>
+                  <button
+                    onClick={handleClassify}
+                    disabled={classifying}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-gray-400"
+                  >
+                    {classifying ? (
+                      <>
+                        <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Classifying...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Classify Species
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

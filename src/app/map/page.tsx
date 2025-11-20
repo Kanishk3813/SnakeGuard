@@ -12,7 +12,9 @@ import { SnakeDetection } from '@/types';
 export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [detections, setDetections] = useState<SnakeDetection[]>([]);
-  const [timeRange, setTimeRange] = useState('all'); // all, week, month
+  const [timeRange, setTimeRange] = useState<'all' | 'week' | 'month' | 'year'>('all');
+  const [viewMode, setViewMode] = useState<'markers' | 'heatmap' | 'both'>('heatmap');
+  const [minConfidence, setMinConfidence] = useState(0);
 
   useEffect(() => {
     async function fetchData() {
@@ -57,37 +59,81 @@ export default function MapPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
               <h1 className="text-2xl font-bold text-gray-900">Snake Detection Map</h1>
               
-              <div className="mt-4 md:mt-0 flex">
-                <button
-                  onClick={() => setTimeRange('all')}
-                  className={`px-4 py-2 rounded-l-lg ${
-                    timeRange === 'all'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300'
-                  }`}
-                >
-                  All Time
-                </button>
-                <button
-                  onClick={() => setTimeRange('month')}
-                  className={`px-4 py-2 ${
-                    timeRange === 'month'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-white text-gray-700 border-t border-b border-gray-300'
-                  }`}
-                >
-                  Last 30 Days
-                </button>
-                <button
-                  onClick={() => setTimeRange('week')}
-                  className={`px-4 py-2 rounded-r-lg ${
-                    timeRange === 'week'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300'
-                  }`}
-                >
-                  Last 7 Days
-                </button>
+              <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setTimeRange('all')}
+                    className={`px-4 py-2 ${
+                      timeRange === 'all'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    All Time
+                  </button>
+                  <button
+                    onClick={() => setTimeRange('year')}
+                    className={`px-4 py-2 border-l border-gray-300 ${
+                      timeRange === 'year'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Last Year
+                  </button>
+                  <button
+                    onClick={() => setTimeRange('month')}
+                    className={`px-4 py-2 border-l border-gray-300 ${
+                      timeRange === 'month'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Last 30 Days
+                  </button>
+                  <button
+                    onClick={() => setTimeRange('week')}
+                    className={`px-4 py-2 border-l border-gray-300 ${
+                      timeRange === 'week'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Last 7 Days
+                  </button>
+                </div>
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('markers')}
+                    className={`px-4 py-2 ${
+                      viewMode === 'markers'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Markers
+                  </button>
+                  <button
+                    onClick={() => setViewMode('heatmap')}
+                    className={`px-4 py-2 border-l border-gray-300 ${
+                      viewMode === 'heatmap'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Heatmap
+                  </button>
+                  <button
+                    onClick={() => setViewMode('both')}
+                    className={`px-4 py-2 border-l border-gray-300 ${
+                      viewMode === 'both'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Both
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -98,29 +144,57 @@ export default function MapPage() {
             ) : (
               <>
                 <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-                  <div className="flex flex-wrap justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-4">
                     <div className="mb-2 md:mb-0">
                       <h2 className="text-lg font-medium text-gray-900">Detection Hotspots</h2>
                       <p className="text-gray-500 text-sm">Displaying {detections.length} detection points</p>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center">
-                        <span className="w-3 h-3 rounded-full bg-red-500 mr-1"></span>
-                        <span className="text-sm text-gray-600">High Risk</span>
+                    {viewMode === 'heatmap' || viewMode === 'both' ? (
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center">
+                          <div className="w-4 h-4 bg-gradient-to-r from-blue-500 via-yellow-500 to-red-500 rounded mr-2"></div>
+                          <span className="text-sm text-gray-600">Heat Intensity</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm text-gray-600">Min Confidence:</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={minConfidence}
+                            onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
+                            className="w-24"
+                          />
+                          <span className="text-sm text-gray-600 w-12">{(minConfidence * 100).toFixed(0)}%</span>
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <span className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></span>
-                        <span className="text-sm text-gray-600">Medium Risk</span>
+                    ) : (
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center">
+                          <span className="w-3 h-3 rounded-full bg-red-500 mr-1"></span>
+                          <span className="text-sm text-gray-600">High Risk</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></span>
+                          <span className="text-sm text-gray-600">Medium Risk</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="w-3 h-3 rounded-full bg-blue-500 mr-1"></span>
+                          <span className="text-sm text-gray-600">Low Risk</span>
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <span className="w-3 h-3 rounded-full bg-blue-500 mr-1"></span>
-                        <span className="text-sm text-gray-600">Low Risk</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
                 
-                <DetectionMap detections={detections} height="700px" />
+                <DetectionMap 
+                  detections={detections} 
+                  height="700px" 
+                  viewMode={viewMode}
+                  timeRange={timeRange}
+                  minConfidence={minConfidence}
+                />
                 
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-white rounded-lg shadow-md p-6">
