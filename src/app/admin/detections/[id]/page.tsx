@@ -159,52 +159,55 @@ export default function DetectionDetailsPage() {
       setClassifying(true);
       setClassificationError(null);
       
-      const response = await fetch('/api/classify', {
+      console.log('Starting classification for detection:', detection.id);
+      console.log('Image URL:', detection.image_url);
+      
+      const response = await fetch('/api/classify-async', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageUrl: detection.image_url,
           detectionId: detection.id
         })
       });
-
-      if (!response.ok) {
-        let errorMessage = 'Classification failed';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const { classification } = await response.json();
+  
+      const result = await response.json();
       
-      // Update detection with classification results
-      const { error: updateError } = await supabase
-        .from('snake_detections')
-        .update({
-          species: classification.species,
-          venomous: classification.venomous,
-          risk_level: classification.riskLevel,
-          classification_confidence: classification.confidence,
-          classification_description: classification.description,
-          classification_first_aid: classification.firstAid,
-          classified_at: new Date().toISOString()
-        })
-        .eq('id', detection.id);
-
-      if (updateError) throw updateError;
-
-      // Refresh detection data
-      await fetchDetectionDetails();
+      console.log('API Response:', {
+        ok: response.ok,
+        status: response.status,
+        result
+      });
+      
+      if (!response.ok) {
+        const errorMsg = result.message || result.error || 'Classification failed';
+        console.error('Classification failed:', errorMsg);
+        throw new Error(errorMsg);
+      }
+  
+      console.log('Classification result:', result);
+  
+      if (result.alreadyClassified) {
+        console.log('Detection was already classified, refreshing data');
+        await fetchDetectionDetails();
+        setClassifying(false);
+        return;
+      }
+  
+      if (result.success && result.classification) {
+        console.log('Classification successful:', result.classification);
+        await fetchDetectionDetails();
+        setClassifying(false);
+      } else {
+        throw new Error('Invalid response from classification API');
+      }
+  
     } catch (err: any) {
       console.error('Classification error:', err);
-      setClassificationError(err.message || 'Failed to classify snake');
-    } finally {
+      const errorMessage = err.message || 'Failed to classify snake';
+      console.error('Error message:', errorMessage);
+      setClassificationError(errorMessage);
       setClassifying(false);
     }
   };

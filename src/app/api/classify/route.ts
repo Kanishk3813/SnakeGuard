@@ -9,6 +9,8 @@ interface ClassificationResult {
   firstAid?: string;
 }
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     const { imageUrl, detectionId } = await request.json();
@@ -40,7 +42,6 @@ export async function POST(request: Request) {
     
     console.log('Gemini API key found, length:', apiKey.length);
 
-    // Fetch the image
     let imageResponse;
     try {
       console.log('Fetching image from:', imageUrl);
@@ -95,9 +96,9 @@ export async function POST(request: Request) {
         );
       }
 
-      // Check if image is too large (max 20MB for Gemini)
-      const maxSize = 20 * 1024 * 1024; // 20MB
+      const maxSize = 20 * 1024 * 1024; 
       if (imageBuffer.byteLength > maxSize) {
+        console.log('Image exceeds Gemini limit');
         return NextResponse.json(
           { 
             error: 'Image too large',
@@ -119,7 +120,6 @@ export async function POST(request: Request) {
     
     const imageBase64 = Buffer.from(imageBuffer).toString('base64');
 
-    // Create classification prompt
     const prompt = `You are a herpetologist expert specializing in Indian snake species identification. Analyze this snake image and provide:
 
 1. **Species Name**: Identify the exact species (scientific name if possible, common name otherwise)
@@ -147,14 +147,12 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   "firstAid": "first aid guidance if venomous, empty string if not"
 }`;
 
-    // Use REST API with correct model name from official docs
     console.log('Sending request to Gemini API...', {
       imageSize: `${(imageBase64.length / 1024).toFixed(2)}KB`,
       mimeType,
       model: 'gemini-2.5-flash'
     });
     
-    // Use v1beta API with gemini-2.5-flash model
     const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     const geminiResponse = await fetch(geminiApiUrl, {
@@ -178,7 +176,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
           temperature: 0.4,
           topK: 32,
           topP: 1,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 1024, 
         }
       }),
     });
@@ -200,7 +198,6 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         error: errorData
       });
       
-      // Check for common errors
       let errorMessage = 'Unknown error';
       if (geminiResponse.status === 400) {
         errorMessage = 'Invalid request to Gemini API. Check image format and size.';
@@ -248,16 +245,13 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
     
     console.log('Gemini response text (first 200 chars):', text.substring(0, 200));
     
-    // Parse JSON response
     let classification: ClassificationResult;
     try {
-      // Remove markdown code blocks if present
       let cleanedText = text.trim();
       if (cleanedText.startsWith('```')) {
         cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       }
       
-      // Extract JSON object
       const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
       const jsonText = jsonMatch ? jsonMatch[0] : cleanedText;
       
@@ -269,7 +263,6 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         text: text.substring(0, 500)
       });
       
-      // Fallback classification
       classification = {
         species: 'Unknown Snake',
         venomous: true,
@@ -280,7 +273,6 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
       };
     }
 
-    // Validate and normalize the response
     if (!classification.species) {
       classification.species = 'Unknown Snake';
     }

@@ -1,0 +1,7 @@
+{
+    "functions": {
+      "app/api/classify-async/route.ts": {
+        "maxDuration": 60
+      }
+    }
+  }
