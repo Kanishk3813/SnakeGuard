@@ -4,12 +4,18 @@ import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { IncidentPlaybook } from '@/types';
 import { generateId } from '@/lib/id';
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+async function resolveParams(context: RouteContext) {
+  return context.params;
+}
+
+export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     await requireAdminUser(request);
+    const params = await resolveParams(context);
     const payload = (await request.json()) as IncidentPlaybook;
     const supabaseAdmin = getSupabaseAdminClient();
     const record = normalizePlaybookPayload({ ...payload, id: params.id });
@@ -30,12 +36,10 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     await requireAdminUser(request);
+    const params = await resolveParams(context);
     const supabaseAdmin = getSupabaseAdminClient();
     const { error } = await supabaseAdmin
       .from('incident_playbooks')
