@@ -1,20 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { SystemSettings } from '@/types';
 import { 
   Save, Bell, Cpu, Database, Key, Cloud, 
   CheckCircle, XCircle, Loader2, AlertTriangle,
-  Trash2, RefreshCw, Shield, Mail, Phone, Webhook
+  Trash2, RefreshCw, Shield, Mail, Phone
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const IncidentPlaybooksManager = dynamic(
+  () => import('@/components/admin/incident-playbooks-manager'),
+  { ssr: false }
+);
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'detection' | 'alerts' | 'model' | 'storage' | 'api' | 'integrations'>('detection');
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'detection' | 'alerts' | 'model' | 'storage' | 'api' | 'integrations' | 'playbooks'>('detection');
   const [settings, setSettings] = useState<SystemSettings>({
     confidence_threshold: 0.5,
     detection_cooldown: 10,
@@ -40,49 +47,84 @@ export default function AdminSettingsPage() {
   const [newEmailRecipient, setNewEmailRecipient] = useState('');
   const [newSmsRecipient, setNewSmsRecipient] = useState('');
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  const fetchSettings = useCallback(
+    async (token: string) => {
+      try {
+        const response = await fetch('/api/admin/settings', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || 'Unable to load settings');
+        }
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading settings:', error);
-      } else if (data) {
-        setSettings({ ...settings, ...data });
+        const payload = await response.json();
+        setSettings(prev => ({ ...prev, ...(payload.data as SystemSettings) }));
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+        setSaveError(error instanceof Error ? error.message : 'Unable to load settings');
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    []
+  );
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        setLoading(true);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          setSaveError('You must be signed in as an admin to manage system settings.');
+          return;
+        }
+
+        setAuthToken(session.access_token);
+        await fetchSettings(session.access_token);
+      } catch (error) {
+        console.error('Error loading admin session:', error);
+        setSaveError('Failed to verify admin session.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [fetchSettings]);
 
   const saveSettings = async () => {
     try {
+      if (!authToken) {
+        setSaveError('Admin session missing. Please refresh and sign in again.');
+        return;
+      }
+
       setSaving(true);
       setSaveSuccess(false);
       setSaveError(null);
 
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          ...settings,
-          updated_at: new Date().toISOString(),
-        });
+      const response = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to save settings');
+      }
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      await fetchSettings(authToken);
     } catch (error: any) {
       console.error('Error saving settings:', error);
       setSaveError(error.message || 'Failed to save settings');
@@ -125,6 +167,7 @@ export default function AdminSettingsPage() {
     { id: 'storage', name: 'Storage', icon: Database },
     { id: 'api', name: 'API', icon: Key },
     { id: 'integrations', name: 'Integrations', icon: Cloud },
+    { id: 'playbooks', name: 'Incident Playbooks', icon: Shield },
   ];
 
   if (loading) {
@@ -184,7 +227,7 @@ export default function AdminSettingsPage() {
         </nav>
       </div>
 
-      {/* Tab Content */}
+        {/* Tab Content */}
       <div className="bg-white shadow rounded-lg">
         {/* Detection Settings */}
         {activeTab === 'detection' && (
@@ -629,26 +672,34 @@ export default function AdminSettingsPage() {
           </div>
         )}
 
+        {activeTab === 'playbooks' && (
+          <div className="p-6">
+            <IncidentPlaybooksManager />
+          </div>
+        )}
+
         {/* Save Button */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
-          <button
-            onClick={saveSettings}
-            disabled={saving}
-            className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Settings
-              </>
-            )}
-          </button>
-        </div>
+        {activeTab !== 'playbooks' && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+            <button
+              onClick={saveSettings}
+              disabled={saving}
+              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Settings
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

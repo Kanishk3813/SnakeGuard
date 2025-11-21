@@ -6,10 +6,12 @@ import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { 
   AlertCircle, Clock, MapPin, Check, X, ChevronLeft, 
-  Edit, Save, Trash2, FileText, ShieldCheck, Sparkles, AlertTriangle
+  Edit, Save, Trash2, ShieldCheck, Sparkles, AlertTriangle,
+  ListChecks, Phone, Mail, Copy, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
-import { formatDate, getConfidenceColor } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import { IncidentAssignment } from '@/types';
 
 type DetectionStatus = 'pending' | 'reviewed' | 'captured' | 'false_alarm';
 
@@ -50,6 +52,12 @@ export default function DetectionDetailsPage() {
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [classifying, setClassifying] = useState(false);
   const [classificationError, setClassificationError] = useState<string | null>(null);
+  const [assignment, setAssignment] = useState<IncidentAssignment | null>(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [assigningPlaybook, setAssigningPlaybook] = useState(false);
+  const [stepsUpdating, setStepsUpdating] = useState(false);
+  const [firstAidCopied, setFirstAidCopied] = useState(false);
+  const [playbookMessage, setPlaybookMessage] = useState<string | null>(null);
 
   const fetchDetectionDetails = async () => {
     try {
@@ -209,6 +217,122 @@ export default function DetectionDetailsPage() {
       console.error('Error message:', errorMessage);
       setClassificationError(errorMessage);
       setClassifying(false);
+    }
+  };
+
+  const loadAssignment = async (detectionId: string) => {
+    try {
+      setAssignmentLoading(true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        throw new Error('Missing admin session');
+      }
+
+      const response = await fetch(`/api/incidents?detectionId=${detectionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Failed to load assignment');
+      setAssignment(body.data || null);
+    } catch (err) {
+      console.error('Assignment load error:', err);
+      setAssignment(null);
+    } finally {
+      setAssignmentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (detection?.id) {
+      loadAssignment(detection.id);
+    }
+  }, [detection?.id]);
+
+  const handleAttachPlaybook = async () => {
+    if (!detection?.id || !detection.risk_level) {
+      setPlaybookMessage('Classification risk level is required before attaching a playbook.');
+      return;
+    }
+    try {
+      setPlaybookMessage(null);
+      setAssigningPlaybook(true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Missing admin session');
+
+      const response = await fetch('/api/incidents/assign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          detectionId: detection.id,
+          riskLevel: detection.risk_level,
+          species: detection.species,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.message || body.error || 'Failed to attach playbook');
+      }
+      await loadAssignment(detection.id);
+      setPlaybookMessage('Playbook assigned successfully.');
+    } catch (err: any) {
+      console.error('Attach playbook error:', err);
+      setPlaybookMessage(err.message || 'Unable to attach playbook');
+    } finally {
+      setAssigningPlaybook(false);
+    }
+  };
+
+  const toggleStepCompletion = async (stepId: string, completed: boolean) => {
+    if (!assignment) return;
+    try {
+      setStepsUpdating(true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Missing admin session');
+
+      const response = await fetch(`/api/incidents/${assignment.id}/steps`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          steps_state: [{ id: stepId, completed }],
+        }),
+      });
+      const raw = await response.text();
+      const body = raw ? JSON.parse(raw) : null;
+      if (!response.ok) {
+        throw new Error(body?.error || 'Failed to update step status');
+      }
+      setAssignment(body?.data || null);
+    } catch (err: any) {
+      console.error('Step update error:', err);
+      setPlaybookMessage(err.message || 'Unable to update step');
+    } finally {
+      setStepsUpdating(false);
+    }
+  };
+
+  const handleCopyFirstAid = async (text?: string | null) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setFirstAidCopied(true);
+      setTimeout(() => setFirstAidCopied(false), 1500);
+    } catch (err) {
+      console.error('Clipboard error', err);
     }
   };
 
@@ -677,6 +801,184 @@ L.marker([detection.latitude!, detection.longitude!])
                       </>
                     )}
                   </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Incident Playbook */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                <ListChecks className="h-5 w-5 mr-2 text-green-600" />
+                Incident Playbook
+              </h2>
+              {assignment && (
+                <span
+                  className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    assignment.status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : assignment.status === 'cancelled'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {assignment.status.toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="p-4 space-y-4">
+              {playbookMessage && (
+                <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                  {playbookMessage}
+                </div>
+              )}
+
+              {assignmentLoading ? (
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+                </div>
+              ) : assignment ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {assignment.playbook?.title || 'Playbook'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {assignment.playbook?.species
+                          ? `${assignment.playbook.species} • ${assignment.playbook.risk_level}`
+                          : assignment.playbook?.risk_level || 'General'}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {(assignment.steps_state || []).filter(step => step.completed).length}/
+                      {(assignment.steps_state || []).length} steps
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(assignment.steps_state || []).map(step => (
+                      <div
+                        key={step.id}
+                        className={`border rounded-md px-3 py-2 flex items-start justify-between ${
+                          step.completed ? 'bg-green-50 border-green-200' : 'bg-white'
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{step.title}</p>
+                          {step.note && (
+                            <p className="text-xs text-gray-500 mt-1">Note: {step.note}</p>
+                          )}
+                          {step.completed_at && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Completed {formatDate(step.completed_at)}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          disabled={stepsUpdating}
+                          onClick={() => toggleStepCompletion(step.id, !step.completed)}
+                          className={`ml-3 inline-flex items-center justify-center h-8 w-8 rounded-full border ${
+                            step.completed
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'border-gray-300 text-gray-400 hover:border-green-500 hover:text-green-500'
+                          } ${stepsUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {step.completed ? <Check className="h-4 w-4" /> : null}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {assignment.playbook?.contacts?.length ? (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center mb-2">
+                        <Phone className="h-4 w-4 mr-2 text-blue-600" />
+                        Contact Tree
+                      </h4>
+                      <div className="space-y-2">
+                        {assignment.playbook.contacts.map(contact => (
+                          <div
+                            key={contact.id}
+                            className="border rounded-md px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div>
+                              <p className="font-medium text-gray-900">{contact.name}</p>
+                              <p className="text-xs text-gray-500">{contact.role}</p>
+                            </div>
+                            <div className="flex items-center space-x-3 text-xs text-gray-600 mt-2 sm:mt-0">
+                              {contact.phone && (
+                                <a
+                                  href={`tel:${contact.phone}`}
+                                  className="inline-flex items-center hover:text-green-600"
+                                >
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  Call
+                                </a>
+                              )}
+                              {contact.email && (
+                                <a
+                                  href={`mailto:${contact.email}`}
+                                  className="inline-flex items-center hover:text-blue-600"
+                                >
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  Email
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {assignment.playbook?.first_aid && (
+                    <div className="border border-red-200 bg-red-50 rounded-md p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-red-800 flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          First Aid Guidance
+                        </p>
+                        <button
+                          onClick={() => handleCopyFirstAid(assignment.playbook?.first_aid)}
+                          className="text-xs text-red-600 hover:text-red-800 inline-flex items-center"
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          {firstAidCopied ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      <div className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                        {assignment.playbook.first_aid}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-6 text-sm text-gray-500 space-y-3">
+                  <p>No playbook is attached to this detection yet.</p>
+                  <button
+                    onClick={handleAttachPlaybook}
+                    disabled={!detection.risk_level || assigningPlaybook}
+                    className="inline-flex items-center px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    {assigningPlaybook ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Linking...
+                      </>
+                    ) : (
+                      <>
+                        <ListChecks className="h-4 w-4 mr-2" />
+                        Attach Playbook
+                      </>
+                    )}
+                  </button>
+                  {!detection.risk_level && (
+                    <p className="text-xs text-red-500">
+                      Classification risk level required before attaching a playbook.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

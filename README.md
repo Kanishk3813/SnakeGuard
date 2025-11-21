@@ -20,6 +20,7 @@ SnakeGuard is an IoT-enabled continuous snake detection system with GPS-based al
 - **GPS Integration:** Geo-tags each detection for precise location tracking
 - **Automated Alerting:** Sends notifications to forest officials and local authorities
 - **Web Dashboard:** Interactive interface for monitoring detections and activity patterns
+- **Incident Playbooks:** SOP builder that auto-attaches checklists, contacts, and first-aid guides to each detection
 - **Offline Capability:** Works without internet connectivity in remote areas
 
 ## 🔧 Tech Stack
@@ -65,6 +66,12 @@ https://drive.google.com/file/d/1-GXW2JWcPoVCP5WajGWTiDJq1hhYzElS/view?usp=shari
 # Configure environment variables
 cp .env.example .env
 # Edit .env file with your Supabase credentials
+# Required keys:
+# NEXT_PUBLIC_SUPABASE_URL
+# NEXT_PUBLIC_SUPABASE_ANON_KEY
+# SUPABASE_SERVICE_ROLE_KEY (used by secure API routes)
+# GEMINI_API_KEY
+# SMTP_* (for email alerts) / Twilio keys (optional)
 ```
 
 ### Setting up the dashboard
@@ -92,6 +99,14 @@ python snake_detection.py
 Visit `http://localhost:3000` in your browser to access the local development server.
 
 For production deployment, visit our hosted version at: `https://snakeguard.vercel.app/`
+
+### Managing Incident Playbooks
+
+Admins can open `Admin → Settings → Incident Playbooks` to author risk-based SOPs (steps, contacts, first-aid). When a detection is classified, the dashboard auto-attaches the matching playbook so responders follow the checklist, mark steps complete, and reach out via one-click call/SMS buttons.
+
+### IoT configuration refresh
+
+The Raspberry Pi agent pulls the latest detection thresholds from `APP_BASE_URL/api/settings/detection`. Set `APP_BASE_URL` and optional overrides (`CONFIDENCE_THRESHOLD`, `DETECTION_COOLDOWN`, `MAX_DETECTIONS_PER_HOUR`) in the Pi environment to control how often settings refresh (`SETTINGS_REFRESH_INTERVAL`, default 5 minutes).
 
 ## 🔄 System Architecture
 
