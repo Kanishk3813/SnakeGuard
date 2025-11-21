@@ -55,6 +55,7 @@ function normalizePlaybookPayload(payload: IncidentPlaybook) {
     species: payload.species?.trim() || null,
     description: payload.description || null,
     first_aid: payload.first_aid || null,
+    created_by: payload.created_by ?? null,
     steps: Array.isArray(payload.steps)
       ? payload.steps.map(step => ({
           id: step.id || generateId(),

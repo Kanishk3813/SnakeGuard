@@ -122,6 +122,7 @@ export interface IncidentPlaybook {
   first_aid?: string | null;
   steps: IncidentPlaybookStep[];
   contacts: IncidentPlaybookContact[];
+  created_by?: string | null;
   created_at?: string;
   updated_at?: string;
 }

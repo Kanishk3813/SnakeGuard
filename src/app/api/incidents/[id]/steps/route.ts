@@ -10,13 +10,18 @@ interface UpdateStepsPayload {
   }[];
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+async function resolveParams(context: RouteContext) {
+  return context.params;
+}
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     await requireAdminUser(request);
-    const assignmentId = params.id;
+    const { id: assignmentId } = await resolveParams(context);
     const { steps_state } = (await request.json()) as UpdateStepsPayload;
 
     if (!Array.isArray(steps_state)) {
