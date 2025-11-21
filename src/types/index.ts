@@ -98,4 +98,50 @@ export interface ClassificationResult {
     created_at?: string;
     updated_at?: string;
   }
+
+export interface IncidentPlaybookStep {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface IncidentPlaybookContact {
+  id: string;
+  name: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface IncidentPlaybook {
+  id: string;
+  title: string;
+  risk_level: string;
+  species?: string | null;
+  description?: string | null;
+  first_aid?: string | null;
+  steps: IncidentPlaybookStep[];
+  contacts: IncidentPlaybookContact[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface IncidentAssignmentStepState {
+  id: string;
+  title: string;
+  completed: boolean;
+  completed_at?: string;
+  note?: string;
+}
+
+export interface IncidentAssignment {
+  id: string;
+  detection_id: string;
+  playbook_id: string;
+  status: 'active' | 'completed' | 'cancelled';
+  steps_state: IncidentAssignmentStepState[];
+  created_at?: string;
+  updated_at?: string;
+  playbook?: IncidentPlaybook;
+}
   

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
+import { defaultSystemSettings } from '@/lib/defaultSystemSettings';
+import { IncidentPlaybook } from '@/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -62,6 +64,42 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
+
+    const effectiveSettings = {
+      ...defaultSystemSettings,
+      ...(systemSettings || {}),
+    };
+
+    if (!effectiveSettings.alert_enabled) {
+      return NextResponse.json({ message: 'Alerts disabled via admin settings' }, { status: 200 });
+    }
+
+    const detectionConfidence = detection.confidence ?? 0;
+    if (detectionConfidence < effectiveSettings.confidence_threshold) {
+      return NextResponse.json(
+        {
+          message: `Detection skipped because confidence ${(
+            detectionConfidence * 100
+          ).toFixed(1)}% is below ${(
+            effectiveSettings.confidence_threshold * 100
+          ).toFixed(0)}% threshold`,
+        },
+        { status: 200 }
+      );
+    }
+
+    const playbookMatch =
+      detection.risk_level
+        ? await findPlaybookForDetection(
+            supabaseAdmin,
+            detection.risk_level,
+            detection.species
+          )
+        : null;
+
+    if (playbookMatch) {
+      await ensureAssignmentExists(supabaseAdmin, detection.id, playbookMatch);
+    }
 
     // Use a large radius to find all users, then filter by user's alert_radius
     const searchRadius = 10000;
@@ -156,21 +194,27 @@ export async function POST(request: NextRequest) {
       }).filter(user => user.distance_km <= searchRadius);
     }
 
-    if (!users || users.length === 0) {
-      return NextResponse.json({ 
-        message: 'No users found within radius',
-        usersFound: 0
-      }, { status: 200 });
-    }
-
     const results = {
       emailsSent: 0,
       smsSent: 0,
+      globalEmailsSent: 0,
+      globalSmsSent: 0,
+      webhookTriggered: false,
       errors: [] as string[],
+      playbookUsed: playbookMatch?.id ?? null,
     };
 
+    const twilioConfig = {
+      enabled: effectiveSettings.twilio_enabled,
+      accountSid: effectiveSettings.twilio_account_sid,
+      authToken: effectiveSettings.twilio_auth_token,
+      fromNumber: effectiveSettings.twilio_phone_number,
+    };
+
+    const usersToNotify = users || [];
+
     // Process each user
-    for (const user of users) {
+    for (const user of usersToNotify) {
       // Check if notification already sent
       const { data: existingNotification } = await supabaseAdmin
         .from('notification_log')
@@ -197,7 +241,12 @@ export async function POST(request: NextRequest) {
       // Send email notification
       if (user.email_notifications && user.email) {
         try {
-          const emailResult = await sendEmailNotification(user.email, detection, user.distance_km);
+          const emailResult = await sendEmailNotification(
+            user.email,
+            detection,
+            user.distance_km,
+            playbookMatch
+          );
           if (emailResult.success) {
             results.emailsSent++;
             await logNotification(user.user_id, detectionId, 'email', 'sent');
@@ -214,7 +263,13 @@ export async function POST(request: NextRequest) {
       // Send SMS notification
       if (user.sms_notifications && user.phone_number) {
         try {
-          const smsResult = await sendSMSNotification(user.phone_number, detection, user.distance_km);
+          const smsResult = await sendSMSNotification(
+            user.phone_number,
+            detection,
+            user.distance_km,
+            twilioConfig,
+            playbookMatch
+          );
           if (smsResult.success) {
             results.smsSent++;
             await logNotification(user.user_id, detectionId, 'sms', 'sent');
@@ -229,9 +284,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Notify global recipients configured in admin settings
+    const globalResults = await notifyGlobalContacts({
+      detection,
+      settings: effectiveSettings,
+      twilioConfig,
+      playbook: playbookMatch,
+    });
+
+    results.globalEmailsSent = globalResults.emailsSent;
+    results.globalSmsSent = globalResults.smsSent;
+    if (globalResults.error) {
+      results.errors.push(globalResults.error);
+    }
+
+    if (effectiveSettings.alert_webhook_url) {
+      try {
+        await fetch(effectiveSettings.alert_webhook_url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            detection,
+            triggeredAt: new Date().toISOString(),
+          }),
+        });
+        results.webhookTriggered = true;
+      } catch (error: any) {
+        results.errors.push(`Webhook error: ${error.message}`);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      usersFound: users.length,
+      usersFound: usersToNotify.length,
       ...results,
     });
   } catch (error: any) {
@@ -246,7 +331,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function sendEmailNotification(email: string, detection: any, distance: number) {
+async function sendEmailNotification(
+  email: string,
+  detection: any,
+  distance?: number,
+  playbook?: IncidentPlaybook | null
+) {
   try {
     // Get SMTP settings from Supabase (stored in system_settings or use env vars)
     const smtpHost = process.env.SMTP_HOST;
@@ -274,17 +364,29 @@ async function sendEmailNotification(email: string, detection: any, distance: nu
     });
 
     // Email content
-    const emailHTML = generateEmailHTML(detection, distance);
+    const emailHTML = generateEmailHTML(detection, distance, playbook);
+    const distanceLabel =
+      typeof distance === 'number'
+        ? `${distance.toFixed(1)} km`
+        : 'near one of your monitored locations';
     const emailText = `
 🐍 Snake Detection Alert
 
-A snake has been detected ${distance.toFixed(1)} km from your location.
+A snake has been detected ${distanceLabel} from your location.
 
 Detection Details:
 - Confidence: ${(detection.confidence * 100).toFixed(1)}%
 - Detected At: ${new Date(detection.timestamp).toLocaleString()}
 ${detection.species ? `- Species: ${detection.species}` : ''}
 - Location: ${detection.latitude?.toFixed(6)}, ${detection.longitude?.toFixed(6)}
+${
+  playbook?.steps?.length
+    ? `- Next Steps:\n${playbook.steps
+        .slice(0, 3)
+        .map((step, idx) => `   ${idx + 1}. ${step.title}`)
+        .join('\n')}`
+    : ''
+}
 
 View Detection: ${process.env.NEXT_PUBLIC_APP_URL || 'https://snakeguard.vercel.app'}/detections
 
@@ -295,7 +397,10 @@ Manage preferences: ${process.env.NEXT_PUBLIC_APP_URL || 'https://snakeguard.ver
     const info = await transporter.sendMail({
       from: `SnakeGuard <${smtpFrom}>`,
       to: email,
-      subject: `🐍 Snake Detected ${distance.toFixed(1)}km Away`,
+      subject:
+        typeof distance === 'number'
+          ? `🐍 Snake Detected ${distance.toFixed(1)}km Away`
+          : '🐍 Snake Detection Alert',
       text: emailText,
       html: emailHTML,
     });
@@ -308,29 +413,42 @@ Manage preferences: ${process.env.NEXT_PUBLIC_APP_URL || 'https://snakeguard.ver
   }
 }
 
-async function sendSMSNotification(phoneNumber: string, detection: any, distance: number) {
-  if (!supabaseAdmin) {
-    return { success: false, error: 'Supabase admin client not initialized' };
-  }
-
-  // Get Twilio settings from system_settings
-  const { data: systemSettings } = await supabaseAdmin
-    .from('system_settings')
-    .select('twilio_enabled, twilio_account_sid, twilio_auth_token, twilio_phone_number')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (!systemSettings?.twilio_enabled || !systemSettings.twilio_account_sid) {
+async function sendSMSNotification(
+  phoneNumber: string,
+  detection: any,
+  distance: number | undefined,
+  twilioConfig: {
+    enabled: boolean;
+    accountSid?: string | null;
+    authToken?: string | null;
+    fromNumber?: string | null;
+  },
+  playbook?: IncidentPlaybook | null
+) {
+  if (!twilioConfig.enabled || !twilioConfig.accountSid) {
     return { success: false, error: 'Twilio not configured' };
   }
 
   try {
-    const accountSid = systemSettings.twilio_account_sid;
-    const authToken = systemSettings.twilio_auth_token;
-    const fromNumber = systemSettings.twilio_phone_number;
+    const accountSid = twilioConfig.accountSid!;
+    const authToken = twilioConfig.authToken;
+    const fromNumber = twilioConfig.fromNumber;
 
-    const message = `🐍 Snake Alert: Detected ${distance.toFixed(1)}km away. Confidence: ${(detection.confidence * 100).toFixed(0)}%. View: ${process.env.NEXT_PUBLIC_APP_URL || 'https://snakeguard.vercel.app'}/detections`;
+    if (!authToken || !fromNumber) {
+      return { success: false, error: 'Twilio credentials incomplete' };
+    }
+
+    const distanceLabel =
+      typeof distance === 'number'
+        ? `${distance.toFixed(1)}km away`
+        : 'near your monitored location';
+
+    const topStep = playbook?.steps?.[0]?.title;
+    const message = `🐍 Snake Alert: Detected ${distanceLabel}. Confidence: ${(detection.confidence * 100).toFixed(
+      0
+    )}%.${topStep ? ` Next: ${topStep}.` : ''} View: ${
+      process.env.NEXT_PUBLIC_APP_URL || 'https://snakeguard.vercel.app'
+    }/detections`;
 
     const response = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
@@ -380,7 +498,75 @@ async function logNotification(
   }
 }
 
-function generateEmailHTML(detection: any, distance: number) {
+async function notifyGlobalContacts({
+  detection,
+  settings,
+  twilioConfig,
+  playbook,
+}: {
+  detection: any;
+  settings: any;
+  twilioConfig: {
+    enabled: boolean;
+    accountSid?: string | null;
+    authToken?: string | null;
+    fromNumber?: string | null;
+  };
+  playbook?: IncidentPlaybook | null;
+}) {
+  let emailsSent = 0;
+  let smsSent = 0;
+  try {
+    const globalEmails = Array.isArray(settings.alert_email_recipients)
+      ? Array.from(
+          new Set(
+            (settings.alert_email_recipients as unknown[]).filter(isNonEmptyString)
+          )
+        )
+      : [];
+    const globalSms = Array.isArray(settings.alert_sms_recipients)
+      ? Array.from(
+          new Set(
+            (settings.alert_sms_recipients as unknown[]).filter(isNonEmptyString)
+          )
+        )
+      : [];
+
+    for (const email of globalEmails) {
+        const result = await sendEmailNotification(email, detection, undefined, playbook);
+      if (result.success) {
+        emailsSent += 1;
+      }
+    }
+
+    for (const phone of globalSms) {
+      const smsResult = await sendSMSNotification(
+        phone,
+        detection,
+        undefined,
+        twilioConfig,
+        playbook
+      );
+      if (smsResult.success) {
+        smsSent += 1;
+      }
+    }
+
+    return { emailsSent, smsSent };
+  } catch (error: any) {
+    return { emailsSent, smsSent, error: error?.message || 'Failed to notify global contacts' };
+  }
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function generateEmailHTML(detection: any, distance?: number, playbook?: IncidentPlaybook | null) {
+  const distanceCopy =
+    typeof distance === 'number'
+      ? `A snake has been detected ${distance.toFixed(1)} km from your location.`
+      : 'A snake has been detected near one of your monitored locations.';
   return `
     <!DOCTYPE html>
     <html>
@@ -401,13 +587,34 @@ function generateEmailHTML(detection: any, distance: number) {
           </div>
           <div class="content">
             <div class="alert-box">
-              <strong>Alert:</strong> A snake has been detected ${distance.toFixed(1)} km from your location.
+              <strong>Alert:</strong> ${distanceCopy}
             </div>
             <h2>Detection Details</h2>
             <p><strong>Confidence:</strong> ${(detection.confidence * 100).toFixed(1)}%</p>
             <p><strong>Detected At:</strong> ${new Date(detection.timestamp).toLocaleString()}</p>
             ${detection.species ? `<p><strong>Species:</strong> ${detection.species}</p>` : ''}
             <p><strong>Location:</strong> ${detection.latitude?.toFixed(6)}, ${detection.longitude?.toFixed(6)}</p>
+            ${
+              playbook?.steps?.length
+                ? `<div style="margin-top:16px;">
+                    <strong>Immediate Steps:</strong>
+                    <ol style="padding-left:18px;margin-top:8px;">
+                      ${playbook.steps
+                        .slice(0, 3)
+                        .map(step => `<li style="margin-bottom:4px;">${step.title}</li>`)
+                        .join('')}
+                    </ol>
+                  </div>`
+                : ''
+            }
+            ${
+              playbook?.first_aid
+                ? `<div style="margin-top:16px;padding:12px;border-radius:8px;background:#fee2e2;color:#b91c1c;">
+                    <strong>First Aid Guidance:</strong>
+                    <p style="margin-top:8px;">${playbook.first_aid}</p>
+                  </div>`
+                : ''
+            }
             <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://snakeguard.vercel.app'}/detections" class="button">
               View Detection
             </a>
@@ -420,4 +627,65 @@ function generateEmailHTML(detection: any, distance: number) {
       </body>
     </html>
   `;
+}
+
+async function findPlaybookForDetection(
+  supabaseAdmin: SupabaseClient,
+  riskLevel?: string | null,
+  species?: string | null
+): Promise<IncidentPlaybook | null> {
+  if (!riskLevel) return null;
+
+  if (species) {
+    const { data } = await supabaseAdmin
+      .from('incident_playbooks')
+      .select('*')
+      .eq('risk_level', riskLevel)
+      .eq('species', species)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  const { data } = await supabaseAdmin
+    .from('incident_playbooks')
+    .select('*')
+    .eq('risk_level', riskLevel)
+    .is('species', null)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data || null;
+}
+
+async function ensureAssignmentExists(
+  supabaseAdmin: SupabaseClient,
+  detectionId: string,
+  playbook: IncidentPlaybook
+) {
+  const { data: existing } = await supabaseAdmin
+    .from('incident_assignments')
+    .select('*')
+    .eq('detection_id', detectionId)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  const stepsState = (playbook.steps || []).map(step => ({
+    id: step.id,
+    title: step.title,
+    completed: false,
+  }));
+
+  const { data } = await supabaseAdmin
+    .from('incident_assignments')
+    .insert({
+      detection_id: detectionId,
+      playbook_id: playbook.id,
+      steps_state: stepsState,
+    })
+    .select()
+    .single();
+
+  return data;
 }
