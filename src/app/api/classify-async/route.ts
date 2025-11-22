@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 export const maxDuration = 60;
 
@@ -14,7 +14,8 @@ interface ClassificationResult {
 
 export async function POST(request: Request) {
   try {
-    const { detectionId } = await request.json();
+    const body = await request.json();
+    const { detectionId, triggerPipeline } = body;
     
     if (!detectionId) {
       return NextResponse.json(
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
 
     console.log('Starting classification for:', detectionId);
 
-    const { data: detection, error: fetchError } = await supabase
+    const supabaseAdmin = getSupabaseAdminClient();
+    const { data: detection, error: fetchError } = await supabaseAdmin
       .from('snake_detections')
       .select('id, image_url, venomous')
       .eq('id', detectionId)
@@ -85,32 +87,20 @@ export async function POST(request: Request) {
       mimeType
     });
 
-    const prompt = `You are a herpetologist expert specializing in Indian snake species identification. Analyze this snake image and provide:
+    // Shorter prompt to reduce token usage and avoid MAX_TOKENS
+    const prompt = `Identify this Indian snake. Respond with ONLY valid JSON (no markdown, no code blocks):
 
-1. **Species Name**: Identify the exact species (scientific name if possible, common name otherwise)
-2. **Venomous Status**: Is this snake venomous? (true/false)
-3. **Confidence**: Your confidence level (0.0 to 1.0)
-4. **Risk Assessment**: 
-   - "critical" if highly venomous (cobra, krait, viper)
-   - "high" if venomous but less dangerous
-   - "medium" if potentially dangerous but not venomous
-   - "low" if non-venomous and harmless
-5. **Brief Description**: 1-2 sentences about the snake
-6. **First Aid Notes**: If venomous, provide basic first aid guidance
-
-Common Indian snake species to consider:
-- Venomous: Indian Cobra, Russell's Viper, Common Krait, Saw-scaled Viper, King Cobra
-- Non-venomous: Indian Python, Rat Snake, Common Sand Boa, Wolf Snake, Keelback
-
-Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 {
   "species": "species name",
   "venomous": true/false,
   "confidence": 0.0-1.0,
   "riskLevel": "critical|high|medium|low",
   "description": "brief description",
-  "firstAid": "first aid guidance if venomous, empty string if not"
-}`;
+  "firstAid": "first aid if venomous, else empty"
+}
+
+Risk: "critical" (cobra/krait/viper), "high" (venomous), "medium" (potentially dangerous), "low" (harmless).
+Common: Indian Cobra, Russell's Viper, Common Krait, Indian Python, Rat Snake.`;
 
     console.log('Calling Gemini API...');
 
@@ -137,7 +127,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
             temperature: 0.4,
             topK: 32,
             topP: 1,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 4096,  // Increased to handle longer responses
           }
         }),
       }
@@ -179,19 +169,31 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         if (candidate.finishReason === 'SAFETY') {
           throw new Error('Response blocked by safety filters');
         }
+        // MAX_TOKENS means response was truncated, but might still have partial content
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          console.warn('Response hit MAX_TOKENS limit - attempting to extract partial content');
+        }
       }
       
+      // Extract text from all parts (not just first one)
       if (candidate.content?.parts && candidate.content.parts.length > 0) {
-        text = candidate.content.parts[0].text || '';
+        text = candidate.content.parts
+          .map((part: any) => part.text || '')
+          .filter((t: string) => t.length > 0)
+          .join('\n');
       }
     }
 
-    if (!text) {
+    if (!text || text.trim().length === 0) {
       console.error('Failed to extract text from Gemini response:', {
         hasCandidates: !!data.candidates,
         candidatesLength: data.candidates?.length,
         firstCandidate: data.candidates?.[0],
-        fullResponse: data
+        finishReason: data.candidates?.[0]?.finishReason,
+        hasContent: !!data.candidates?.[0]?.content,
+        hasParts: !!data.candidates?.[0]?.content?.parts,
+        partsLength: data.candidates?.[0]?.content?.parts?.length,
+        fullResponse: JSON.stringify(data, null, 2)
       });
       throw new Error('Empty response from Gemini API - check server logs for details');
     }
@@ -232,7 +234,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
 
     console.log('Classification result:', classification);
 
-    const { error: updateError } = await supabase
+    const { data: updatedData, error: updateError } = await supabaseAdmin
       .from('snake_detections')
       .update({
         species: classification.species,
@@ -244,14 +246,36 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
         classified_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .eq('id', detectionId);
+      .eq('id', detectionId)
+      .select()
+      .single();
 
     if (updateError) {
       console.error('Database update error:', updateError);
       throw updateError;
     }
 
-    console.log('Classification complete and saved!');
+    console.log('Classification complete and saved!', {
+      detectionId,
+      species: updatedData?.species,
+      venomous: updatedData?.venomous,
+      risk_level: updatedData?.risk_level
+    });
+
+    // Optionally trigger full pipeline if requested
+    if (triggerPipeline === true) {
+      try {
+        // Trigger pipeline asynchronously (don't wait for it)
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/detections/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ detectionId }),
+        }).catch(err => console.warn('[Classify] Pipeline trigger failed:', err));
+      } catch (err) {
+        // Non-blocking, just log
+        console.warn('[Classify] Failed to trigger pipeline:', err);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -262,14 +286,22 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
     console.error('Classification error:', error);
     
     try {
-      await supabase
-        .from('snake_detections')
-        .update({ 
-          notes: `Classification failed: ${error.message}`,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', request.body ? JSON.parse(await request.text()).detectionId : null);
+      const supabaseAdmin = getSupabaseAdminClient();
+      const body = await request.json().catch(() => ({}));
+      const detectionId = body.detectionId;
+      
+      if (detectionId) {
+        await supabaseAdmin
+          .from('snake_detections')
+          .update({ 
+            notes: `Classification failed: ${error.message}`,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', detectionId);
+      }
     } catch (e) {
+      // Non-critical error logging
+      console.warn('Failed to update detection with error note:', e);
     }
     
     return NextResponse.json(

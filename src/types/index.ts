@@ -145,4 +145,28 @@ export interface IncidentAssignment {
   updated_at?: string;
   playbook?: IncidentPlaybook;
 }
-  
+
+export interface PipelineMetrics {
+  id: string;
+  detection_id: string;
+  response_time_ms: number;
+  classification_completed: boolean;
+  playbook_assigned: boolean;
+  notifications_sent: boolean;
+  errors?: string[] | null;
+  created_at: string;
+}
+
+export interface PipelineResult {
+  success: boolean;
+  detectionId: string;
+  classificationCompleted: boolean;
+  playbookAssigned: boolean;
+  notificationsSent: boolean;
+  incidentCreated: boolean;
+  errors: string[];
+  responseTime: number;
+  message?: string;
+  alreadyProcessed?: boolean;
+  skipped?: boolean;
+}

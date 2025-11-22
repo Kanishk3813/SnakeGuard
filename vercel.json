@@ -1,7 +1,19 @@
 {
-    "functions": {
-      "app/api/classify-async/route.ts": {
-        "maxDuration": 60
-      }
+  "functions": {
+    "app/api/classify-async/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/detections/process/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/detections/poll/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/detections/poll",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
