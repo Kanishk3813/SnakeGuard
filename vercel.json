@@ -9,11 +9,5 @@
     "app/api/detections/poll/route.ts": {
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/detections/poll",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  }
 }
