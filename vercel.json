@@ -4,7 +4,7 @@
       "maxDuration": 60
     },
     "app/api/detections/process/route.ts": {
-      "maxDuration": 120
+      "maxDuration": 60
     },
     "app/api/detections/poll/route.ts": {
       "maxDuration": 60
