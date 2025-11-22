@@ -120,24 +120,15 @@ export async function POST(request: Request) {
     
     const imageBase64 = Buffer.from(imageBuffer).toString('base64');
 
-    const prompt = `You are a herpetologist expert specializing in Indian snake species identification. Analyze this snake image and provide:
+    const prompt = `You are a herpetologist expert specializing in global snake species identification. Analyze this snake image and provide the best possible match.
 
-1. **Species Name**: Identify the exact species (scientific name if possible, common name otherwise)
-2. **Venomous Status**: Is this snake venomous? (true/false)
-3. **Confidence**: Your confidence level (0.0 to 1.0)
-4. **Risk Assessment**: 
-   - "critical" if highly venomous (cobra, krait, viper)
-   - "high" if venomous but less dangerous
-   - "medium" if potentially dangerous but not venomous
-   - "low" if non-venomous and harmless
-5. **Brief Description**: 1-2 sentences about the snake
-6. **First Aid Notes**: If venomous, provide basic first aid guidance
+Important:
+- Identify the snake species accurately even if it is NOT native to India.
+- Do NOT force-match the snake to an Indian species if the correct species is from another country.
+- If uncertain, return "unknown" and confidence 0.0 instead of guessing.
+- Respond strictly in the JSON format below.
 
-Common Indian snake species to consider:
-- Venomous: Indian Cobra, Russell's Viper, Common Krait, Saw-scaled Viper, King Cobra
-- Non-venomous: Indian Python, Rat Snake, Common Sand Boa, Wolf Snake, Keelback
-
-Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
+Required fields and output format (do not change field names or order):
 {
   "species": "species name",
   "venomous": true/false,
@@ -145,6 +136,15 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   "riskLevel": "critical|high|medium|low",
   "description": "brief description",
   "firstAid": "first aid guidance if venomous, empty string if not"
+}
+
+Risk level rules:
+- "critical" = extremely venomous and life-threatening (cobra, krait, viper, taipan, mamba, etc.)
+- "high" = venomous but generally less fatal with treatment
+- "medium" = mildly venomous or non-fatal to healthy adults
+- "low" = non-venomous and harmless
+
+Do not return any text outside of the JSON object. No markdown or comments.
 }`;
 
     console.log('Sending request to Gemini API...', {
