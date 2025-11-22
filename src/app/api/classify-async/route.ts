@@ -88,19 +88,31 @@ export async function POST(request: Request) {
     });
 
     // Shorter prompt to reduce token usage and avoid MAX_TOKENS
-    const prompt = `Identify this Indian snake. Respond with ONLY valid JSON (no markdown, no code blocks):
+    const prompt = `You are a herpetologist expert specializing in global snake species identification. Analyze this snake image and provide the best possible match.
 
+Important:
+- Identify the snake species accurately even if it is NOT native to India.
+- Do NOT force-match the snake to an Indian species if the correct species is from another country.
+- If uncertain, return "unknown" and confidence 0.0 instead of guessing.
+- Respond strictly in the JSON format below.
+
+Required fields and output format (do not change field names or order):
 {
   "species": "species name",
   "venomous": true/false,
   "confidence": 0.0-1.0,
   "riskLevel": "critical|high|medium|low",
   "description": "brief description",
-  "firstAid": "first aid if venomous, else empty"
+  "firstAid": "first aid guidance if venomous, empty string if not"
 }
 
-Risk: "critical" (cobra/krait/viper), "high" (venomous), "medium" (potentially dangerous), "low" (harmless).
-Common: Indian Cobra, Russell's Viper, Common Krait, Indian Python, Rat Snake.`;
+Risk level rules:
+- "critical" = extremely venomous and life-threatening (cobra, krait, viper, taipan, mamba, etc.)
+- "high" = venomous but generally less fatal with treatment
+- "medium" = mildly venomous or non-fatal to healthy adults
+- "low" = non-venomous and harmless
+
+Do not return any text outside of the JSON object. No markdown or comments.`;
 
     console.log('Calling Gemini API...');
 
