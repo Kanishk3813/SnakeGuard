@@ -4,26 +4,21 @@ import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { IncidentPlaybook } from '@/types';
 import { generateId } from '@/lib/id';
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
-async function resolveParams(context: RouteContext) {
-  return context.params;
-}
-
-export async function PUT(request: NextRequest, context: RouteContext) {
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     await requireAdminUser(request);
-    const params = await resolveParams(context);
+    const { id } = await context.params;
     const payload = (await request.json()) as IncidentPlaybook;
     const supabaseAdmin = getSupabaseAdminClient();
-    const record = normalizePlaybookPayload({ ...payload, id: params.id });
+    const record = normalizePlaybookPayload({ ...payload, id });
 
     const { data, error } = await supabaseAdmin
       .from('incident_playbooks')
       .update(record)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -36,15 +31,18 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     await requireAdminUser(request);
-    const params = await resolveParams(context);
+    const { id } = await context.params;
     const supabaseAdmin = getSupabaseAdminClient();
     const { error } = await supabaseAdmin
       .from('incident_playbooks')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ success: true });
