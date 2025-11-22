@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { 
   AlertTriangle, BarChart3, LogOut, Map, Settings, 
-  Users, Database, Clipboard, Home, Menu, X
+  Users, Database, Clipboard, Home, Menu, X, Activity
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -65,6 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Dashboard', href: '/admin/dashboard', icon: BarChart3 },
     { name: 'Detections', href: '/admin/detections', icon: AlertTriangle },
     { name: 'Map', href: '/admin/map', icon: Map },
+    { name: 'Pipeline', href: '/admin/pipeline', icon: Activity },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];

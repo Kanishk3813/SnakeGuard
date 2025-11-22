@@ -35,6 +35,7 @@ last_settings_refresh = 0
 recent_detection_times = []
 
 def upload_detection(image_path, confidence):
+    detection_id = None
     try:
         image_name = f"{uuid.uuid4()}.jpg"
         # Try storage upload first
@@ -58,7 +59,33 @@ def upload_detection(image_path, confidence):
         }).execute()
         print(f"Database insert response: {response}")
         
-        print("✅ Uploaded to Supabase")
+        # Extract detection ID from response
+        if response.data and len(response.data) > 0:
+            detection_id = response.data[0].get('id')
+            print(f"✅ Uploaded to Supabase (ID: {detection_id})")
+        else:
+            print("✅ Uploaded to Supabase (ID not returned)")
+        
+        # Optionally trigger processing pipeline
+        # Set AUTO_TRIGGER_PIPELINE=1 in environment to enable
+        auto_trigger = os.environ.get("AUTO_TRIGGER_PIPELINE", "0") == "1"
+        if auto_trigger and detection_id:
+            try:
+                pipeline_url = f"{APP_BASE_URL}/api/detections/process"
+                print(f"[Pipeline] Triggering automated processing...")
+                pipeline_response = requests.post(
+                    pipeline_url,
+                    json={"detectionId": detection_id},
+                    timeout=10
+                )
+                if pipeline_response.status_code == 200:
+                    print(f"[Pipeline] ✅ Processing pipeline triggered successfully")
+                else:
+                    print(f"[Pipeline] ⚠️ Pipeline trigger returned {pipeline_response.status_code}")
+            except Exception as pipeline_error:
+                # Non-critical, don't fail the upload
+                print(f"[Pipeline] ⚠️ Failed to trigger pipeline (non-critical): {pipeline_error}")
+        
     except Exception as e:
         print("❌ Supabase upload failed:", e)
         print("Error details:", repr(e))
