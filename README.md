@@ -18,7 +18,7 @@ SnakeGuard is an IoT-enabled continuous snake detection system with GPS-based al
 - **Real-time Snake Detection:** Uses YOLOv8n model for efficient, accurate detection
 - **Edge Computing:** Optimized for deployment on Raspberry Pi devices
 - **GPS Integration:** Geo-tags each detection for precise location tracking
-- **Offline Capability:** Works without internet connectivity in remote areas
+- **Offline Capability:** ⚡ **NEW!** Automatic offline queue with background sync - detections are stored locally when offline and automatically synced when connection is restored
 
 ### Automated Incident Response Pipeline ⚡
 - **AI-Powered Species Classification:** Automatically classifies snake species using Google Gemini AI
@@ -27,6 +27,7 @@ SnakeGuard is an IoT-enabled continuous snake detection system with GPS-based al
 - **Automated Notifications:** Sends alerts via email and SMS to nearby users and global contacts
 - **Incident Tracking:** Creates incident assignments with step-by-step checklists
 - **Response Metrics:** Tracks pipeline performance and response times
+- **AI Playbook Generator:** Generate incident playbooks with a single click using an LLM (optional auto-save to Supabase)
 
 ### Web Dashboard
 - **Interactive Monitoring:** Real-time dashboard for viewing detections and activity patterns
@@ -131,12 +132,27 @@ export APP_BASE_URL=https://your-app.vercel.app
 export SUPABASE_URL=your_supabase_url
 export SUPABASE_KEY=your_supabase_anon_key
 
+# Optional: Enable offline mode (recommended for remote deployments)
+export OFFLINE_MODE=auto  # Options: "auto", "always", "never"
+# - "auto": Try online first, queue if offline (recommended)
+# - "always": Always queue (for testing)
+# - "never": Online-only mode (original behavior)
+
 # Optional: Enable automatic pipeline triggering
 export AUTO_TRIGGER_PIPELINE=1
 
 # Run the detection system
-python rasp.py
+# Choose based on your needs:
+python rasp_offline.py  # With offline support (recommended)
+# OR
+python rasp.py          # Online-only mode
 ```
+
+**Offline Mode Features:**
+- Automatically queues detections when internet is unavailable
+- Background sync thread syncs queued detections when connection is restored
+- No data loss during connectivity issues
+- See `pi/OFFLINE_MODE_README.md` for detailed documentation
 
 ### Database Setup
 
@@ -194,6 +210,21 @@ When a new detection is created:
 3. Add species-specific playbooks for targeted responses
 4. Define steps, contacts, and first-aid information
 5. Playbooks automatically attach to matching detections
+6. **Generate with AI:** Call the `/api/admin/playbooks/generate` endpoint (or use the upcoming UI button) to auto-create a playbook. Provide `riskLevel`, optional `species`, `scenario`, and set `save: true` to store it.
+
+Example:
+```bash
+curl -X POST https://your-app.vercel.app/api/admin/playbooks/generate \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "riskLevel": "high",
+        "species": "Russell\'s Viper",
+        "scenario": "Farmer bitten in remote field",
+        "location": "Tamil Nadu agricultural belt",
+        "save": true
+      }'
+```
 
 #### Monitoring Pipeline Performance
 1. Go to **Admin → Pipeline**
