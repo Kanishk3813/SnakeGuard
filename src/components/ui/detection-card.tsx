@@ -11,58 +11,61 @@ import {
   MapPin,
   Clock,
   AlertCircle,
-  Check,
   Map,
-  FileText,
-  ChevronDown,
-  ChevronUp,
   AlertTriangle,
   X,
+  Info,
 } from "lucide-react";
 
 interface DetectionCardProps {
   detection: SnakeDetection;
-  onMarkReviewed?: (id: string) => void;
   userLocation?: { lat: number; lng: number } | null;
 }
 
 export default function DetectionCard({
   detection,
-  onMarkReviewed,
   userLocation,
 }: DetectionCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [timeAgo, setTimeAgo] = useState<string>("");
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const leafletLoadedRef = useRef<boolean>(false);
 
-  const confidenceLevel =
-    detection.confidence >= 0.9
-      ? "high"
-      : detection.confidence >= 0.7
-      ? "medium"
-      : "low";
-
-  const confidenceClasses = {
-    high: "bg-green-100 text-green-800 border-green-300",
-    medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
-    low: "bg-red-100 text-red-800 border-red-300",
+  // Risk level styling - subtle and professional
+  const riskLevelConfig = {
+    critical: {
+      badge: "bg-gray-900 text-white",
+      dot: "bg-gray-900",
+      label: "Critical",
+    },
+    high: {
+      badge: "bg-gray-700 text-white",
+      dot: "bg-gray-700",
+      label: "High Risk",
+    },
+    medium: {
+      badge: "bg-gray-500 text-white",
+      dot: "bg-gray-500",
+      label: "Medium",
+    },
+    low: {
+      badge: "bg-gray-300 text-gray-700",
+      dot: "bg-gray-300",
+      label: "Low Risk",
+    },
   };
 
-  const confidenceIcons = {
-    high: <Check className="h-4 w-4" />,
-    medium: <AlertTriangle className="h-4 w-4" />,
-    low: <AlertCircle className="h-4 w-4" />,
-  };
+  const riskLevel = (detection.risk_level || "low") as keyof typeof riskLevelConfig;
+  const riskConfig = riskLevelConfig[riskLevel] || riskLevelConfig.low;
 
-  const handleMarkReviewed = () => {
-    if (onMarkReviewed) {
-      onMarkReviewed(detection.id);
-    }
-  };
+  // Calculate time ago on client side only to avoid hydration mismatch
+  useEffect(() => {
+    setTimeAgo(getTimeAgo(detection.classified_at || detection.timestamp));
+  }, [detection.classified_at, detection.timestamp]);
 
   const handleViewMap = () => {
     if (hasCoordinates) {
@@ -152,186 +155,244 @@ export default function DetectionCard({
   }, [showMap, hasCoordinates]); 
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md border border-gray-200 flex flex-col h-full">
+      {/* Image Section */}
       <div className="relative">
-        <div className="aspect-video relative overflow-hidden group bg-gray-200">
+        <div className="aspect-video relative overflow-hidden bg-gray-100">
           {!imageError && detection.image_url ? (
             <Image
               src={detection.image_url}
               alt={`Snake detected at ${formatDate(detection.timestamp)}`}
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={() => setImageError(true)}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+            <div className="w-full h-full flex items-center justify-center bg-gray-50">
               <div className="text-center p-4">
-                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Image not available</p>
+                <AlertCircle className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Image not available</p>
               </div>
             </div>
           )}
-          <div className="absolute top-2 left-2 flex items-center space-x-1 bg-black bg-opacity-70 text-white px-2 py-1 rounded-full text-xs backdrop-blur-sm">
-            <Clock className="h-3 w-3" />
-            <span>{getTimeAgo(detection.timestamp)}</span>
+          
+          {/* Subtle overlays */}
+          <div className="absolute top-3 left-3 flex items-center gap-2">
+            {detection.risk_level && (
+              <span className={`${riskConfig.badge} px-2.5 py-1 rounded text-xs font-medium`}>
+                {riskConfig.label}
+              </span>
+            )}
+            {detection.venomous && (
+              <span className="bg-gray-800 text-white px-2.5 py-1 rounded text-xs font-medium">
+                Venomous
+              </span>
+            )}
           </div>
 
-          <div
-            className={`absolute top-2 right-2 flex items-center space-x-1 ${confidenceClasses[confidenceLevel]} px-2 py-1 rounded-full text-xs font-medium border`}
-          >
-            {confidenceIcons[confidenceLevel]}
-            <span>{(detection.confidence * 100).toFixed(0)}%</span>
+          <div className="absolute top-3 right-3">
+            <div className="bg-black bg-opacity-60 text-white px-2.5 py-1 rounded text-xs font-medium backdrop-blur-sm">
+              {(detection.confidence * 100).toFixed(0)}%
+            </div>
           </div>
 
           {detection.processed === false && (
-            <div className="absolute bottom-2 left-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+            <div className="absolute bottom-3 left-3 bg-gray-800 text-white px-2.5 py-1 rounded text-xs font-medium">
               New
             </div>
           )}
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-lg">
-              {detection.species || "Snake Detected"}
-            </h3>
-            <div className="flex items-center text-gray-500 text-sm mt-1">
-              <Clock className="h-3 w-3 mr-1" />
-              <span>{formatDate(detection.timestamp)}</span>
-            </div>
+      {/* Content Section - Compact */}
+      <div className="p-4 flex-1 flex flex-col min-h-0">
+        {/* Species Name */}
+        <h3 className="font-semibold text-gray-900 text-base mb-2">
+          {detection.species || "Unknown Species"}
+        </h3>
+
+        {/* Essential Info Only */}
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-xs text-gray-600 mb-3">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+            <span suppressHydrationWarning>{timeAgo || formatDate(detection.classified_at || detection.timestamp)}</span>
           </div>
+          {hasCoordinates && userLocation && (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>
+                {calculateDistance(
+                  userLocation.lat,
+                  userLocation.lng,
+                  detection.latitude!,
+                  detection.longitude!
+                ).toFixed(1)} km away
+              </span>
+            </div>
+          )}
+          {detection.venomous !== undefined && (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${detection.venomous ? 'bg-gray-800' : 'bg-gray-300'}`} />
+              <span>{detection.venomous ? "Venomous" : "Non-venomous"}</span>
+            </div>
+          )}
         </div>
 
-        {hasCoordinates && (
-          <div className="flex items-center text-gray-600 text-sm mt-2">
-            <MapPin className="h-3 w-3 text-gray-400 mr-1" />
-            <span className="truncate">
-              {`${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(
-                6
-              )}`}
-            </span>
-          </div>
-        )}
-
-        {/* Add the distance info display */}
-        {userLocation && hasCoordinates && (
-          <div className="flex items-center text-gray-600 text-sm mt-2">
-            <div className="h-3 w-3 rounded-full bg-blue-500 mr-1"></div>
-            <span>
-              {calculateDistance(
-                userLocation.lat,
-                userLocation.lng,
-                detection.latitude!,
-                detection.longitude!
-              ).toFixed(1)}{" "}
-              km from you
-            </span>
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={handleMarkReviewed}
-            className="flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-xs font-medium hover:bg-green-100 transition-colors"
-          >
-            <Check className="h-3 w-3 mr-1" />
-            Mark as Reviewed
-          </button>
-
+        {/* Action Buttons - Always at bottom */}
+        <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100">
           {hasCoordinates && (
             <button
               onClick={handleViewMap}
-              className="flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-xs font-medium hover:bg-blue-100 transition-colors"
+              className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-800 transition-colors"
             >
-              <Map className="h-3 w-3 mr-1" />
-              View on Map
+              <Map className="h-3.5 w-3.5 mr-1.5" />
+              Map
             </button>
           )}
 
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center ml-auto px-3 py-1.5 text-gray-600 rounded-md text-xs font-medium hover:bg-gray-100 transition-colors"
+            onClick={() => setShowDetailsModal(true)}
+            className="flex items-center justify-center px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded text-xs font-medium hover:bg-gray-50 transition-colors"
           >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="h-3 w-3 mr-1" />
-                Less Details
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3 mr-1" />
-                More Details
-              </>
-            )}
+            <Info className="h-3.5 w-3.5 mr-1.5" />
+            Details
           </button>
         </div>
+      </div>
 
-        {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3 text-sm">
-            {detection.notes ? (
-              <div className="flex items-start">
-                <FileText className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+      {/* Details Modal */}
+      {showDetailsModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+          onClick={() => setShowDetailsModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-semibold text-xl text-gray-900">
+                {detection.species || "Unknown Species"}
+              </h3>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Description */}
+              {detection.classification_description && (
                 <div>
-                  <div className="font-medium text-gray-700 mb-1">Notes</div>
-                  <p className="text-gray-600">{detection.notes}</p>
+                  <div className="text-sm font-semibold text-gray-900 mb-2">Description</div>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {detection.classification_description}
+                  </p>
+                </div>
+              )}
+
+              {/* Key Information Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Detected</div>
+                  <p className="text-sm text-gray-900">{formatDate(detection.timestamp)}</p>
+                </div>
+                {detection.classified_at && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-1">Classified</div>
+                    <p className="text-sm text-gray-900">{formatDate(detection.classified_at)}</p>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Detection Confidence</div>
+                  <p className="text-sm text-gray-900">{(detection.confidence * 100).toFixed(0)}%</p>
+                </div>
+                {detection.classification_confidence && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-1">ID Confidence</div>
+                    <p className="text-sm text-gray-900">{(detection.classification_confidence * 100).toFixed(0)}%</p>
+                  </div>
+                )}
+                {hasCoordinates && (
+                  <div className="col-span-2">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Coordinates</div>
+                    <p className="text-sm text-gray-900 font-mono">
+                      {`${detection.latitude.toFixed(6)}, ${detection.longitude.toFixed(6)}`}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Type</div>
+                  <p className="text-sm text-gray-900">
+                    {detection.venomous ? "Venomous" : "Non-venomous"}
+                  </p>
+                </div>
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Status</div>
+                  <div className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                    {detection.status === "captured"
+                      ? "Captured"
+                      : detection.status === "reviewed"
+                      ? "Reviewed"
+                      : detection.status === "false_alarm"
+                      ? "False Alarm"
+                      : "Pending Review"}
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-start">
-                <FileText className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-                <div>
-                  <div className="font-medium text-gray-700 mb-1">Notes</div>
-                  <p className="text-gray-400 italic">No notes available</p>
-                </div>
-              </div>
-            )}
 
-            <div className="flex items-start">
-              <Clock className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="font-medium text-gray-700 mb-1">Created</div>
-                <p className="text-gray-600">
-                  {formatDate(detection.created_at)}
-                </p>
-              </div>
+              {/* First Aid Info */}
+              {detection.venomous && detection.classification_first_aid && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="text-sm font-semibold text-red-900 mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    First Aid Instructions
+                  </div>
+                  <p className="text-sm text-red-800 whitespace-pre-wrap leading-relaxed">
+                    {detection.classification_first_aid}
+                  </p>
+                </div>
+              )}
+
+              {/* Notes */}
+              {detection.notes && (
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 mb-2">Additional Notes</div>
+                  <p className="text-sm text-gray-700">{detection.notes}</p>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-start">
-              <AlertCircle className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="font-medium text-gray-700 mb-1">Status</div>
-                <div
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium 
-      ${
-        detection.status === "captured"
-          ? "bg-green-100 text-green-800"
-          : detection.status === "reviewed"
-          ? "bg-blue-100 text-blue-800"
-          : detection.status === "false_alarm"
-          ? "bg-gray-100 text-gray-800"
-          : "bg-yellow-100 text-yellow-800"
-      }`}
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              {hasCoordinates && (
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setShowMap(true);
+                  }}
+                  className="px-4 py-2 bg-gray-900 text-white rounded text-sm font-medium hover:bg-gray-800 transition-colors"
                 >
-                  {detection.status === "captured"
-                    ? "Snake Captured"
-                    : detection.status === "reviewed"
-                    ? "Reviewed"
-                    : detection.status === "false_alarm"
-                    ? "False Alarm"
-                    : "Pending Review"}
-                </div>
-              </div>
+                  <Map className="h-4 w-4 inline mr-2" />
+                  View on Map
+                </button>
+              )}
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Map Popup */}
       {showMap && hasCoordinates && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-full flex flex-col overflow-hidden">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="font-semibold text-lg">
@@ -376,3 +437,4 @@ export default function DetectionCard({
     </div>
   );
 }
+

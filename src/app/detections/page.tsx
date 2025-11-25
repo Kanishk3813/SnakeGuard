@@ -70,28 +70,6 @@ export default function DetectionsPage() {
     []
   );
 
-  const handleMarkReviewed = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("snake_detections")
-        .update({ status: "reviewed", processed: true })
-        .eq("id", id);
-
-      if (error) {
-        console.error("Error marking detection as reviewed:", error);
-      } else {
-        setDetections((prevDetections) =>
-          prevDetections.map((detection) =>
-            detection.id === id
-              ? { ...detection, status: "reviewed", processed: true }
-              : detection
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error updating detection:", error);
-    }
-  };
 
   const filteredDetections = detections.filter((detection) => {
     const matchesSearch = !searchTerm
@@ -260,13 +238,12 @@ export default function DetectionsPage() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
                       {paginatedDetections.map((detection) => (
                         <DetectionCard
                           key={detection.id}
                           detection={detection}
                           userLocation={userLocation}
-                          onMarkReviewed={handleMarkReviewed}
                         />
                       ))}
                     </div>
