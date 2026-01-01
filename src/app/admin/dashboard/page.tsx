@@ -13,6 +13,8 @@ import {
   Activity,
   TrendingUp,
   Shield,
+  Send,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -35,75 +37,163 @@ export default function AdminDashboardPage() {
   });
   const [recentDetections, setRecentDetections] = useState<any[]>([]);
   const [debugInfo, setDebugInfo] = useState<string>("");
+  const [processingDetections, setProcessingDetections] = useState(false);
+  const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
+  const [processResult, setProcessResult] = useState<any>(null);
+
+  const fetchUnassignedCount = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setUnassignedCount(0);
+        return;
+      }
+
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch('/api/admin/process-existing-detections', {
+        headers
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setUnassignedCount(data.unassignedCount || 0);
+      } else {
+        console.error('Failed to fetch unassigned count:', data.error);
+        setUnassignedCount(0);
+      }
+    } catch (error) {
+      console.error('Error fetching unassigned count:', error);
+      setUnassignedCount(0);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch stats using count queries (much faster) - run in parallel
+      const [
+        totalResult,
+        pendingResult,
+        capturedResult,
+        falseAlarmResult,
+        usersResult,
+        recentResult
+      ] = await Promise.all([
+        // Total detections count
+        supabase
+          .from("snake_detections")
+          .select("*", { count: 'exact', head: true }),
+        
+        // Pending review count
+        supabase
+          .from("snake_detections")
+          .select("*", { count: 'exact', head: true })
+          .eq("status", "pending"),
+        
+        // Captured count
+        supabase
+          .from("snake_detections")
+          .select("*", { count: 'exact', head: true })
+          .eq("status", "captured"),
+        
+        // False alarms count
+        supabase
+          .from("snake_detections")
+          .select("*", { count: 'exact', head: true })
+          .eq("status", "false_alarm"),
+        
+        // Total users count (using user_profiles table)
+        supabase
+          .from("user_profiles")
+          .select("*", { count: 'exact', head: true }),
+        
+        // Recent detections (only fetch 5 most recent)
+        supabase
+          .from("snake_detections")
+          .select("id, image_url, species, timestamp, updated_at, status")
+          .order("updated_at", { ascending: false })
+          .limit(5)
+      ]);
+      
+      setStats({
+        totalDetections: totalResult.count || 0,
+        pendingReview: pendingResult.count || 0,
+        capturedSnakes: capturedResult.count || 0,
+        falseAlarms: falseAlarmResult.count || 0,
+        totalUsers: usersResult.count || 0,
+      });
+      
+      setRecentDetections(recentResult.data || []);
+      
+    } catch (error) {
+      console.error("Unexpected error in fetchDashboardData:", error);
+      setDebugInfo(`Unexpected error: ${JSON.stringify(error)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        // Fetch stats using count queries (much faster) - run in parallel
-        const [
-          totalResult,
-          pendingResult,
-          capturedResult,
-          falseAlarmResult,
-          usersResult,
-          recentResult
-        ] = await Promise.all([
-          // Total detections count
-          supabase
-            .from("snake_detections")
-            .select("*", { count: 'exact', head: true }),
-          
-          // Pending review count
-          supabase
-            .from("snake_detections")
-            .select("*", { count: 'exact', head: true })
-            .eq("status", "pending"),
-          
-          // Captured count
-          supabase
-            .from("snake_detections")
-            .select("*", { count: 'exact', head: true })
-            .eq("status", "captured"),
-          
-          // False alarms count
-          supabase
-            .from("snake_detections")
-            .select("*", { count: 'exact', head: true })
-            .eq("status", "false_alarm"),
-          
-          // Total users count (using user_profiles table)
-          supabase
-            .from("user_profiles")
-            .select("*", { count: 'exact', head: true }),
-          
-          // Recent detections (only fetch 5 most recent)
-          supabase
-            .from("snake_detections")
-            .select("id, image_url, species, timestamp, updated_at, status")
-            .order("updated_at", { ascending: false })
-            .limit(5)
-        ]);
-        
-        setStats({
-          totalDetections: totalResult.count || 0,
-          pendingReview: pendingResult.count || 0,
-          capturedSnakes: capturedResult.count || 0,
-          falseAlarms: falseAlarmResult.count || 0,
-          totalUsers: usersResult.count || 0,
-        });
-        
-        setRecentDetections(recentResult.data || []);
-        
-      } catch (error) {
-        console.error("Unexpected error in fetchDashboardData:", error);
-        setDebugInfo(`Unexpected error: ${JSON.stringify(error)}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
+    fetchUnassignedCount();
   }, []);
+
+  const handleProcessExistingDetections = async () => {
+    if (!confirm(`Send assignment requests for ${unassignedCount || 'all'} unassigned detections?`)) {
+      return;
+    }
+
+    try {
+      setProcessingDetections(true);
+      setProcessResult(null);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please log in');
+        return;
+      }
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch('/api/admin/process-existing-detections', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ limit: 100, onlyUnassigned: true })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}: Failed to process detections`);
+      }
+
+      if (data.success) {
+        setProcessResult(data);
+        await fetchUnassignedCount();
+        await fetchDashboardData();
+        
+        if (data.failed > 0) {
+          alert(`Processed ${data.succeeded} detections successfully. ${data.failed} failed.\n\nErrors:\n${data.errors?.slice(0, 5).join('\n') || 'Unknown errors'}`);
+        } else {
+          alert(`Successfully processed ${data.succeeded} detections!`);
+        }
+      } else {
+        alert(data.error || 'Failed to process detections');
+      }
+    } catch (error: any) {
+      alert('Error: ' + error.message);
+    } finally {
+      setProcessingDetections(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
@@ -180,6 +270,25 @@ export default function AdminDashboardPage() {
                 <Shield className="mr-2 h-4 w-4" />
                 Manage Playbooks
               </Link>
+              {unassignedCount !== null && (
+                <button
+                  onClick={handleProcessExistingDetections}
+                  disabled={processingDetections || unassignedCount === 0}
+                  className="inline-flex items-center rounded-full bg-blue-600 text-white px-4 py-2 text-sm font-semibold shadow hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {processingDetections ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Send Requests {unassignedCount > 0 && `(${unassignedCount})`}
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 

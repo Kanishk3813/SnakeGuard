@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Search, Mail, Phone, MapPin, Calendar, User, Shield } from 'lucide-react';
+import { Search, Mail, Phone, MapPin, Calendar, User, Shield, UserCheck, UserX, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface UserProfile {
@@ -14,6 +14,7 @@ interface UserProfile {
   location_address: string | null;
   email_verified: boolean;
   phone_verified: boolean;
+  is_responder?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,7 +32,9 @@ export default function AdminUsersPage() {
     total: 0,
     withLocation: 0,
     verified: 0,
+    responders: 0,
   });
+  const [updatingResponder, setUpdatingResponder] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -63,10 +66,13 @@ export default function AdminUsersPage() {
         u => u.email_verified || u.phone_verified
       ).length;
 
+      const responders = usersWithEmail.filter(u => u.is_responder).length;
+
       setStats({
         total: usersWithEmail.length,
         withLocation,
         verified,
+        responders,
       });
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -99,6 +105,60 @@ export default function AdminUsersPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const handleToggleResponder = async (userId: string, isResponder: boolean) => {
+    try {
+      setUpdatingResponder(userId);
+      
+      // Get the access token from Supabase session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Error getting session:', sessionError);
+        alert('Error: Could not get your session. Please try logging in again.');
+        return;
+      }
+
+      if (!session?.access_token) {
+        console.error('No access token in session');
+        alert('Error: No valid session found. Please try logging in again.');
+        return;
+      }
+
+      const headers: HeadersInit = { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      };
+      
+      console.log('Sending request to update responder status:', { userId, isResponder });
+      
+      const response = await fetch('/api/admin/responders', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId, isResponder })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('API Error:', data);
+        alert(data.error || data.details || 'Failed to update responder status');
+        return;
+      }
+
+      if (data.success) {
+        // Refresh users list
+        await fetchUsers();
+      } else {
+        alert(data.error || 'Failed to update responder status');
+      }
+    } catch (error: any) {
+      console.error('Error in handleToggleResponder:', error);
+      alert('Error: ' + error.message);
+    } finally {
+      setUpdatingResponder(null);
+    }
   };
 
   if (loading) {
@@ -187,6 +247,28 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-purple-100 rounded-md p-3">
+                <UserCheck className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Responders
+                  </dt>
+                  <dd>
+                    <div className="text-lg font-medium text-gray-900">
+                      {stats.responders}
+                    </div>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
@@ -243,6 +325,9 @@ export default function AdminUsersPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Joined
                 </th>
               </tr>
@@ -250,7 +335,7 @@ export default function AdminUsersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                     {searchTerm || filterLocation !== 'all'
                       ? 'No users found matching your filters.'
                       : 'No users found.'}
@@ -324,6 +409,39 @@ export default function AdminUsersPage() {
                             Unverified
                           </span>
                         )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {user.is_responder ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            Responder
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            <UserX className="h-3 w-3 mr-1" />
+                            User
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleToggleResponder(user.user_id, !user.is_responder)}
+                          disabled={updatingResponder === user.user_id}
+                          className={`ml-2 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                            user.is_responder
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          title={user.is_responder ? 'Remove responder status' : 'Grant responder status'}
+                        >
+                          {updatingResponder === user.user_id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : user.is_responder ? (
+                            'Remove'
+                          ) : (
+                            'Make Responder'
+                          )}
+                        </button>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

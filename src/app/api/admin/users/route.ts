@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch user profiles
+    // Fetch user profiles (including is_responder)
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('user_profiles')
       .select('*')

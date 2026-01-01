@@ -170,3 +170,57 @@ export interface PipelineResult {
   alreadyProcessed?: boolean;
   skipped?: boolean;
 }
+
+export interface ProbabilityZone {
+  radius: number; // in meters
+  probability: number; // 0-1
+  label: string; // "High", "Medium", "Low"
+  color: string; // for visualization
+}
+
+export interface PredictedPath {
+  points: Array<{ lat: number; lng: number }>;
+  confidence: number;
+  direction: number; // degrees
+  distance: number; // meters
+}
+
+export interface MovementPrediction {
+  detectionId: string;
+  timeElapsedHours: number;
+  phase: 'escape' | 'seeking_shelter' | 'settling' | 'established';
+  maxDistance: number; // meters
+  zones: ProbabilityZone[];
+  paths: PredictedPath[];
+  currentPosition: {
+    latitude: number;
+    longitude: number;
+    confidence: number;
+  };
+  searchRecommendations: {
+    priorityRadius: number;
+    secondaryRadius: number;
+    extendedRadius: number;
+    estimatedSpeed: number; // km/h
+    likelyBehavior: string;
+  };
+}
+
+export interface ResponderAssignment {
+  id: string;
+  detection_id: string;
+  responder_id: string;
+  assigned_at: string;
+  status: 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  notes?: string | null;
+  arrived_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  detection?: SnakeDetection;
+  responder?: {
+    id: string;
+    email: string;
+    full_name?: string;
+  };
+}

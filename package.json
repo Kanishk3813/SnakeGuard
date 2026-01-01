@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "cron:expired": "node scripts/process-expired-requests.js",
+    "test:expired": "node scripts/test-expired-requests.js"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

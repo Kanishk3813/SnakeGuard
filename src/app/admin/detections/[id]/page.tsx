@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { IncidentAssignment } from '@/types';
+import PredictivePathMap from '@/components/ui/predictive-path-map';
 
 type DetectionStatus = 'pending' | 'reviewed' | 'captured' | 'false_alarm';
 
@@ -534,20 +535,24 @@ L.marker([detection.latitude!, detection.longitude!])
             </div>
           </div>
 
-          {/* Map */}
+          {/* Predictive Path Map */}
           {detection.latitude && detection.longitude && (
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="p-4 bg-gray-50 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Location</h2>
+                <h2 className="text-lg font-medium text-gray-900">Predictive Movement Tracking</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Estimated snake movement path and search zones based on species behavior and time elapsed
+                </p>
               </div>
               <div className="p-4">
-                <div className="mb-3 flex items-center text-gray-600 text-sm">
-                  <MapPin className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>{`${detection.latitude?.toFixed(6) || 'N/A'}, ${detection.longitude?.toFixed(6) || 'N/A'}`}</span>
-                </div>
-                <div className="aspect-video relative rounded-lg overflow-hidden border border-gray-200">
-                  <div id="detailMap" className="h-full w-full"></div>
-                </div>
+                <PredictivePathMap
+                  detectionId={detection.id}
+                  initialLatitude={detection.latitude}
+                  initialLongitude={detection.longitude}
+                  detectionTimestamp={detection.timestamp}
+                  species={detection.species}
+                  status={detection.status}
+                />
               </div>
             </div>
           )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { supabase } from '@/lib/supabase';
 import { IncidentPlaybook, IncidentAssignmentStepState, IncidentPlaybookStep } from '@/types';
+import { createAssignmentRequests } from '@/lib/responder-assignment';
 
 /**
  * Automated Detection Processing Pipeline
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
       playbookAssigned: false,
       notificationsSent: false,
       incidentCreated: false,
+      responderAssigned: false,
       errors: [] as string[],
       responseTime: 0
     };
@@ -294,7 +296,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 5: Mark detection as processed
+    // Step 5: Auto-assign to closest responder (if location available)
+    if (detection.latitude && detection.longitude && alertEnabled) {
+      try {
+        console.log(`[Pipeline] Creating assignment requests for ${detectionId}`);
+        
+        const assignmentResult = await createAssignmentRequests(
+          detectionId,
+          detection.latitude,
+          detection.longitude
+        );
+
+        if (assignmentResult.success) {
+          pipelineResults.responderAssigned = true;
+          console.log(`[Pipeline] Assignment requests created: ${assignmentResult.requestsCreated}`);
+        } else if (assignmentResult.error === 'No responders with valid locations found') {
+          console.warn(`[Pipeline] No responders with locations found - responders need to set their location first`);
+          // Not an error, just informational
+        } else {
+          console.warn(`[Pipeline] Assignment request creation failed: ${assignmentResult.error}`);
+          pipelineResults.errors.push(`Responder assignment: ${assignmentResult.error || 'Failed'}`);
+        }
+      } catch (error: any) {
+        console.error(`[Pipeline] Responder assignment error:`, error);
+        pipelineResults.errors.push(`Responder assignment: ${error.message}`);
+      }
+    }
+
+    // Step 6: Mark detection as processed
     await supabaseAdmin
       .from('snake_detections')
       .update({
