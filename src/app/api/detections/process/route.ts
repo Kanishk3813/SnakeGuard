@@ -299,7 +299,12 @@ export async function POST(request: NextRequest) {
     // Step 5: Auto-assign to closest responder (if location available)
     if (detection.latitude && detection.longitude && alertEnabled) {
       try {
-        console.log(`[Pipeline] Creating assignment requests for ${detectionId}`);
+        console.log(`[Pipeline] Creating assignment requests for ${detectionId}`, {
+          hasCoordinates: !!(detection.latitude && detection.longitude),
+          alertEnabled,
+          latitude: detection.latitude,
+          longitude: detection.longitude
+        });
         
         const assignmentResult = await createAssignmentRequests(
           detectionId,
@@ -309,18 +314,34 @@ export async function POST(request: NextRequest) {
 
         if (assignmentResult.success) {
           pipelineResults.responderAssigned = true;
-          console.log(`[Pipeline] Assignment requests created: ${assignmentResult.requestsCreated}`);
+          console.log(`[Pipeline] Assignment requests created: ${assignmentResult.requestsCreated}`, {
+            requestsCreated: assignmentResult.requestsCreated,
+            message: assignmentResult.message
+          });
         } else if (assignmentResult.error === 'No responders with valid locations found') {
           console.warn(`[Pipeline] No responders with locations found - responders need to set their location first`);
           // Not an error, just informational
         } else {
-          console.warn(`[Pipeline] Assignment request creation failed: ${assignmentResult.error}`);
+          console.warn(`[Pipeline] Assignment request creation failed: ${assignmentResult.error}`, {
+            error: assignmentResult.error,
+            message: assignmentResult.message
+          });
           pipelineResults.errors.push(`Responder assignment: ${assignmentResult.error || 'Failed'}`);
         }
       } catch (error: any) {
         console.error(`[Pipeline] Responder assignment error:`, error);
         pipelineResults.errors.push(`Responder assignment: ${error.message}`);
       }
+    } else {
+      console.log(`[Pipeline] Skipping assignment requests:`, {
+        hasCoordinates: !!(detection.latitude && detection.longitude),
+        alertEnabled,
+        reason: !detection.latitude || !detection.longitude 
+          ? 'Missing coordinates' 
+          : !alertEnabled 
+          ? 'Alerts disabled' 
+          : 'Unknown'
+      });
     }
 
     // Step 6: Mark detection as processed

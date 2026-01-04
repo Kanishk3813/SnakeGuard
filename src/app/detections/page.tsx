@@ -8,6 +8,7 @@ import LocationFilter from "@/components/ui/location-filter";
 import { supabase } from "@/lib/supabase";
 import { SnakeDetection } from "@/types";
 import { calculateDistance } from "@/lib/utils";
+import { Download, FileText, Loader2 } from "lucide-react";
 
 export default function DetectionsPage() {
   const [loading, setLoading] = useState(true);
@@ -22,6 +23,7 @@ export default function DetectionsPage() {
   const [locationPermissionGranted, setLocationPermissionGranted] =
     useState(false);
   const [selectedRadius, setSelectedRadius] = useState<number>(50);
+  const [exporting, setExporting] = useState(false);
   const itemsPerPage = 12;
 
   useEffect(() => {
@@ -69,6 +71,53 @@ export default function DetectionsPage() {
     },
     []
   );
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    try {
+      setExporting(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        alert('Please log in to export data');
+        return;
+      }
+
+      // Build query params based on current filters
+      const params = new URLSearchParams();
+      params.set('format', format);
+      if (filter === 'high') {
+        // Note: API doesn't support confidence filter, but we can add it if needed
+      }
+
+      const headers: HeadersInit = {
+        'Authorization': `Bearer ${session.access_token}`,
+      };
+
+      const response = await fetch(`/api/export/detections?${params.toString()}`, {
+        headers,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `detections.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Export error:', error);
+      alert(`Failed to export: ${error.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
 
   const filteredDetections = detections.filter((detection) => {
@@ -146,37 +195,71 @@ export default function DetectionsPage() {
                 />
               </div>
 
-              <div className="flex w-full md:w-auto">
-                <button
-                  onClick={() => setFilter("all")}
-                  className={`px-4 py-2 rounded-l-lg ${
-                    filter === "all"
-                      ? "bg-green-600 text-white"
-                      : "bg-white text-gray-700 border border-gray-300"
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setFilter("high")}
-                  className={`px-4 py-2 ${
-                    filter === "high"
-                      ? "bg-green-600 text-white"
-                      : "bg-white text-gray-700 border-t border-b border-gray-300"
-                  }`}
-                >
-                  High Confidence
-                </button>
-                <button
-                  onClick={() => setFilter("low")}
-                  className={`px-4 py-2 rounded-r-lg ${
-                    filter === "low"
-                      ? "bg-green-600 text-white"
-                      : "bg-white text-gray-700 border border-gray-300"
-                  }`}
-                >
-                  Low Confidence
-                </button>
+              <div className="flex w-full md:w-auto gap-2">
+                <div className="inline-flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+                  <button
+                    onClick={() => handleExport('csv')}
+                    disabled={exporting}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-r border-gray-300"
+                    title="Export as CSV"
+                  >
+                    {exporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-1" />
+                        CSV
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleExport('pdf')}
+                    disabled={exporting}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Export as PDF"
+                  >
+                    {exporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 mr-1" />
+                        PDF
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="flex">
+                  <button
+                    onClick={() => setFilter("all")}
+                    className={`px-4 py-2 rounded-l-lg ${
+                      filter === "all"
+                        ? "bg-green-600 text-white"
+                        : "bg-white text-gray-700 border border-gray-300"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setFilter("high")}
+                    className={`px-4 py-2 ${
+                      filter === "high"
+                        ? "bg-green-600 text-white"
+                        : "bg-white text-gray-700 border-t border-b border-gray-300"
+                    }`}
+                  >
+                    High Confidence
+                  </button>
+                  <button
+                    onClick={() => setFilter("low")}
+                    className={`px-4 py-2 rounded-r-lg ${
+                      filter === "low"
+                        ? "bg-green-600 text-white"
+                        : "bg-white text-gray-700 border border-gray-300"
+                    }`}
+                  >
+                    Low Confidence
+                  </button>
+                </div>
               </div>
             </div>
 

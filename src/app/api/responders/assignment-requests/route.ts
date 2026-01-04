@@ -33,8 +33,29 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') || 'pending';
 
-    // Get assignment requests
-    const { data: requests, error } = await supabaseAdmin
+    // Debug logging
+    console.log('[Assignment Requests API] Fetching requests:', {
+      userId,
+      status,
+      hasSession: !!session
+    });
+
+    // First, check ALL requests for this user (any status) for debugging
+    const { data: allRequestsDebug } = await supabaseAdmin
+      .from('assignment_requests')
+      .select('id, responder_id, status, detection_id, requested_at, expires_at')
+      .eq('responder_id', userId);
+
+    console.log('[Assignment Requests API] ALL requests for user (any status):', {
+      count: (allRequestsDebug || []).length,
+      requests: allRequestsDebug || []
+    });
+
+    // First try with detection relationship
+    let requests: any[] = [];
+    let error: any = null;
+
+    const { data: requestsWithDetection, error: detectionError } = await supabaseAdmin
       .from('assignment_requests')
       .select(`
         *,
@@ -44,8 +65,69 @@ export async function GET(request: NextRequest) {
       .eq('status', status)
       .order('requested_at', { ascending: false });
 
+    if (detectionError) {
+      console.error('[Assignment Requests API] Error with detection join:', detectionError);
+      // Fallback: try without detection relationship
+      const { data: requestsWithoutDetection, error: simpleError } = await supabaseAdmin
+        .from('assignment_requests')
+        .select('*')
+        .eq('responder_id', userId)
+        .eq('status', status)
+        .order('requested_at', { ascending: false });
+      
+      if (simpleError) {
+        error = simpleError;
+      } else {
+        requests = requestsWithoutDetection || [];
+        console.log('[Assignment Requests API] Using fallback query (no detection join):', {
+          count: requests.length,
+          requestIds: requests.map(r => r.id)
+        });
+      }
+    } else {
+      requests = requestsWithDetection || [];
+    }
+
     if (error) {
+      console.error('[Assignment Requests API] Database error:', error);
       throw error;
+    }
+
+    console.log('[Assignment Requests API] Found requests:', {
+      count: (requests || []).length,
+      requestIds: (requests || []).map(r => r.id),
+      responderIds: (requests || []).map(r => r.responder_id),
+      statuses: (requests || []).map(r => r.status),
+      // Check if detection relationship failed
+      requestsWithDetection: (requests || []).filter(r => r.detection).length,
+      requestsWithoutDetection: (requests || []).filter(r => !r.detection).length
+    });
+
+    // If we have requests but detection is null, fetch detections manually
+    if (requests && requests.length > 0) {
+      const requestsWithoutDetection = requests.filter(r => !r.detection);
+      if (requestsWithoutDetection.length > 0) {
+        console.warn('[Assignment Requests API] Some requests missing detection relationship, fetching manually:', {
+          count: requestsWithoutDetection.length,
+          detectionIds: requestsWithoutDetection.map(r => r.detection_id)
+        });
+        
+        // Fetch detections manually
+        const detectionIds = requestsWithoutDetection.map(r => r.detection_id).filter(Boolean);
+        if (detectionIds.length > 0) {
+          const { data: detections } = await supabaseAdmin
+            .from('snake_detections')
+            .select('*')
+            .in('id', detectionIds);
+          
+          // Map detections to requests
+          const detectionMap = new Map((detections || []).map(d => [d.id, d]));
+          requests = requests.map(r => ({
+            ...r,
+            detection: r.detection || detectionMap.get(r.detection_id) || null
+          }));
+        }
+      }
     }
 
     return NextResponse.json({

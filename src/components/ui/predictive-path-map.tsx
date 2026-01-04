@@ -437,8 +437,10 @@ export default function PredictivePathMap({
               <div className="flex justify-between">
                 <span className="text-gray-600">Est. Speed:</span>
                 <span className="font-medium text-gray-900">
-                  {prediction.searchRecommendations.estimatedSpeed < 0.1 
+                  {prediction.phase === 'established' 
                     ? '< 0.1 km/h (Settled)' 
+                    : prediction.searchRecommendations.estimatedSpeed < 0.1
+                    ? `${prediction.searchRecommendations.estimatedSpeed.toFixed(3)} km/h`
                     : `${prediction.searchRecommendations.estimatedSpeed.toFixed(2)} km/h`}
                 </span>
               </div>

@@ -190,22 +190,51 @@ export async function GET(request: NextRequest) {
     if (includeUnassigned) {
       const assignedDetectionIds = (assignments || []).map(a => a.detection_id).filter(Boolean);
       
+      console.log('[Assignments API] Fetching unassigned detections:', {
+        assignedCount: assignedDetectionIds.length,
+        assignedIds: assignedDetectionIds
+      });
+      
+      // Get all detections that are not captured or false_alarm
+      // Also include detections with null status (new detections)
+      // Use a simpler approach: get all, then filter in memory
       let unassignedQuery = supabaseAdmin
         .from('snake_detections')
         .select('*')
-        .neq('status', 'captured')
-        .neq('status', 'false_alarm')
-        .order('timestamp', { ascending: false });
+        .order('timestamp', { ascending: false })
+        .limit(100); // Limit to most recent 100
 
-      const { data: allUnassigned, error: unassignedError } = await unassignedQuery;
+      const { data: allDetections, error: allDetectionsError } = await unassignedQuery;
       
-      if (!unassignedError && allUnassigned) {
+      // Filter out captured and false_alarm in memory (more reliable)
+      const eligibleDetections = (allDetections || []).filter(d => 
+        d.status !== 'captured' && d.status !== 'false_alarm'
+      );
+
+      console.log('[Assignments API] All detections query result:', {
+        count: allDetections?.length || 0,
+        error: allDetectionsError?.message,
+        detectionIds: allDetections?.map(d => d.id) || []
+      });
+      
+      if (!allDetectionsError && eligibleDetections) {
         // Filter out assigned detections in memory
         if (assignedDetectionIds.length > 0) {
-          unassignedDetections = allUnassigned.filter(d => !assignedDetectionIds.includes(d.id));
+          unassignedDetections = eligibleDetections.filter(d => !assignedDetectionIds.includes(d.id));
         } else {
-          unassignedDetections = allUnassigned;
+          unassignedDetections = eligibleDetections;
         }
+        
+        console.log('[Assignments API] Final unassigned detections:', {
+          totalDetections: allDetections?.length || 0,
+          eligibleAfterStatusFilter: eligibleDetections.length,
+          unassignedAfterAssignmentFilter: unassignedDetections.length,
+          detectionIds: unassignedDetections.map(d => d.id),
+          statuses: unassignedDetections.map(d => d.status),
+          timestamps: unassignedDetections.map(d => d.timestamp)
+        });
+      } else if (allDetectionsError) {
+        console.error('[Assignments API] Error fetching detections:', allDetectionsError);
       }
     }
 

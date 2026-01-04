@@ -16,6 +16,7 @@ export interface SnakeDetection {
   notes?: string;
   created_at: string;
   status?: 'pending' | 'reviewed' | 'captured' | 'false_alarm';
+  device_id?: string; // Reference to camera device
 }
 
 export interface ClassificationResult {
@@ -223,4 +224,21 @@ export interface ResponderAssignment {
     email: string;
     full_name?: string;
   };
+}
+
+export interface Camera {
+  id: string;
+  device_id: string;
+  name: string;
+  description?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  status: 'online' | 'offline' | 'maintenance' | 'error';
+  stream_url?: string | null;
+  stream_type: 'mjpeg' | 'webrtc' | 'hls';
+  stream_port?: number;
+  last_seen?: string | null;
+  firmware_version?: string | null;
+  created_at: string;
+  updated_at: string;
 }

@@ -65,6 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Dashboard', href: '/admin/dashboard', icon: BarChart3 },
     { name: 'Detections', href: '/admin/detections', icon: AlertTriangle },
     { name: 'Map', href: '/admin/map', icon: Map },
+    { name: 'Cameras', href: '/admin/cameras', icon: Database },
     { name: 'Pipeline', href: '/admin/pipeline', icon: Activity },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Settings', href: '/admin/settings', icon: Settings },

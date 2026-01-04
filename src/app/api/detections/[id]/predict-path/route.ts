@@ -47,7 +47,15 @@ export async function GET(
     const baseLng = detection.longitude;
     const detectionTime = new Date(detection.timestamp);
     const now = new Date();
-    const timeElapsedMs = now.getTime() - detectionTime.getTime();
+    let timeElapsedMs = now.getTime() - detectionTime.getTime();
+    
+    // Handle edge case: if detection timestamp is in the future, treat as just detected
+    if (timeElapsedMs < 0) {
+      console.warn(`Detection ${detectionId} has future timestamp, treating as just detected`);
+      // Set to 1 minute elapsed to avoid division issues
+      timeElapsedMs = 60000;
+    }
+    
     const timeElapsedHours = timeElapsedMs / (1000 * 60 * 60);
     const timeElapsedMinutes = timeElapsedMs / (1000 * 60);
 
@@ -92,22 +100,30 @@ export async function GET(
     if (timeElapsedMinutes < 15) {
       phase = 'escape';
       speedMultiplier = 0.9;
-      maxDistance = Math.min(30, speciesSpeed * 0.25); // 15 min = 0.25 hours
+      // Scale maxDistance based on actual elapsed time, capped at 15 minutes worth
+      const escapeTimeHours = Math.min(timeElapsedHours, 0.25); // Cap at 15 min = 0.25 hours
+      maxDistance = Math.min(30, speciesSpeed * speedMultiplier * escapeTimeHours);
       likelyBehavior = 'Rapidly moving away from disturbance';
     } else if (timeElapsedMinutes < 60) {
       phase = 'seeking_shelter';
       speedMultiplier = 0.5;
-      maxDistance = Math.min(80, speciesSpeed * 1.0);
+      // Scale from 15 min to 60 min
+      const seekingTimeHours = Math.min(timeElapsedHours, 1.0);
+      maxDistance = Math.min(80, speciesSpeed * speedMultiplier * seekingTimeHours);
       likelyBehavior = 'Seeking cover or shelter, movement slowing';
     } else if (timeElapsedHours < 4) {
       phase = 'settling';
       speedMultiplier = 0.15;
-      maxDistance = Math.min(150, speciesSpeed * 4.0);
+      // Scale from 1 hour to 4 hours
+      const settlingTimeHours = Math.min(timeElapsedHours, 4.0);
+      maxDistance = Math.min(150, speciesSpeed * speedMultiplier * settlingTimeHours);
       likelyBehavior = 'Likely found shelter, minimal movement';
     } else {
       phase = 'established';
       speedMultiplier = 0.05;
-      maxDistance = Math.min(homeRange, 200); // Cap at home range
+      // For established phase, use home range but scale with time (capped)
+      const establishedTimeHours = Math.min(timeElapsedHours, 24.0); // Cap at 24 hours
+      maxDistance = Math.min(homeRange, speciesSpeed * speedMultiplier * establishedTimeHours);
       likelyBehavior = 'Probably settled in shelter, very limited movement';
     }
 
@@ -240,7 +256,30 @@ export async function GET(
     // Use seeded random to vary the primary direction, not always south
     const primaryPathIndex = Math.floor(seededRandom() * paths.length);
     const primaryPath = paths[primaryPathIndex];
-    const avgDistance = maxDistance * (0.3 + seededRandom() * 0.2); // 30-50% of max distance
+    
+    // Calculate distance based on time elapsed and phase
+    // For very new detections (< 5 min), snake is likely very close to detection point
+    // As time passes, the snake moves further away, but the rate decreases
+    let distanceProgress: number;
+    if (timeElapsedMinutes < 5) {
+      // Very new: 5-15% of maxDistance (snake just detected, likely nearby)
+      distanceProgress = 0.05 + (timeElapsedMinutes / 5) * 0.1; // 5% to 15%
+    } else if (timeElapsedMinutes < 30) {
+      // Early phase: 15-40% of maxDistance (snake moving away)
+      distanceProgress = 0.15 + ((timeElapsedMinutes - 5) / 25) * 0.25; // 15% to 40%
+    } else if (timeElapsedHours < 2) {
+      // Mid phase: 40-60% of maxDistance (snake settling)
+      distanceProgress = 0.4 + ((timeElapsedHours - 0.5) / 1.5) * 0.2; // 40% to 60%
+    } else {
+      // Established phase: 50-70% of maxDistance (snake likely settled somewhere)
+      // Add slight variation based on seed for uniqueness
+      const seedVariation = (seededRandom() - 0.5) * 0.2; // ±10% variation
+      distanceProgress = 0.5 + seedVariation + Math.min(0.2, (timeElapsedHours - 2) / 20); // 50-70%
+    }
+    
+    // Ensure distance progress is within reasonable bounds
+    distanceProgress = Math.max(0.05, Math.min(0.75, distanceProgress));
+    const avgDistance = maxDistance * distanceProgress;
     const avgDirection = primaryPath.direction; // Use the primary path direction, not hardcoded south
     
     const R = 6371000;

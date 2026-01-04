@@ -15,6 +15,8 @@ import {
   Shield,
   Send,
   Loader2,
+  Download,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -40,6 +42,7 @@ export default function AdminDashboardPage() {
   const [processingDetections, setProcessingDetections] = useState(false);
   const [unassignedCount, setUnassignedCount] = useState<number | null>(null);
   const [processResult, setProcessResult] = useState<any>(null);
+  const [exporting, setExporting] = useState(false);
 
   const fetchUnassignedCount = async () => {
     try {
@@ -140,6 +143,46 @@ export default function AdminDashboardPage() {
     fetchDashboardData();
     fetchUnassignedCount();
   }, []);
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    try {
+      setExporting(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        alert('Please log in to export data');
+        return;
+      }
+
+      const headers: HeadersInit = {
+        'Authorization': `Bearer ${session.access_token}`,
+      };
+
+      const response = await fetch(`/api/export/detections?format=${format}`, {
+        headers,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `detections.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Export error:', error);
+      alert(`Failed to export: ${error.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleProcessExistingDetections = async () => {
     if (!confirm(`Send assignment requests for ${unassignedCount || 'all'} unassigned detections?`)) {
@@ -270,6 +313,35 @@ export default function AdminDashboardPage() {
                 <Shield className="mr-2 h-4 w-4" />
                 Manage Playbooks
               </Link>
+              <div className="inline-flex items-center rounded-full bg-white/10 px-2 py-1 border border-white/30">
+                <button
+                  onClick={() => handleExport('csv')}
+                  disabled={exporting}
+                  className="inline-flex items-center px-3 py-1.5 text-sm font-medium hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-l-full"
+                  title="Export as CSV"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  CSV
+                </button>
+                <div className="h-6 w-px bg-white/30"></div>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={exporting}
+                  className="inline-flex items-center px-3 py-1.5 text-sm font-medium hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-r-full"
+                  title="Export as PDF"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-1" />
+                  )}
+                  PDF
+                </button>
+              </div>
               {unassignedCount !== null && (
                 <button
                   onClick={handleProcessExistingDetections}

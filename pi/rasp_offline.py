@@ -25,11 +25,24 @@ except ImportError:
 
 from offline_queue import OfflineQueue
 from offline_sync import OfflineSync
+import socket
 
 # Supabase config
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY) else None
+
+# Device ID (unique identifier for this Raspberry Pi)
+def get_device_id():
+    """Get unique device identifier (MAC address)"""
+    try:
+        mac = ':'.join(['{:02x}'.format((uuid.getnode() >> i) & 0xff) 
+                       for i in range(0, 8*6, 8)][::-1])
+        return mac
+    except:
+        return socket.gethostname()
+
+DEVICE_ID = get_device_id()
 
 # Load the YOLOv8 model
 model = YOLO("best.pt")  
@@ -93,12 +106,22 @@ def upload_detection(image_path, confidence, latitude=None, longitude=None):
             if result:
                 public_url = supabase.storage.from_("snake-images").get_public_url(image_name)
                 
+                # Get camera ID from device_id
+                camera_id = None
+                try:
+                    camera_result = supabase.table("cameras").select("id").eq("device_id", DEVICE_ID).execute()
+                    if camera_result.data and len(camera_result.data) > 0:
+                        camera_id = camera_result.data[0]["id"]
+                except:
+                    pass  # Non-critical, device might not be registered yet
+                
                 response = supabase.table("snake_detections").insert({
                     "timestamp": datetime.utcnow().isoformat(),
                     "confidence": round(confidence, 2),
                     "image_url": public_url,
                     "latitude": latitude,
                     "longitude": longitude,
+                    "device_id": camera_id,  # Link to camera device
                 }).execute()
                 
                 if response.data and len(response.data) > 0:

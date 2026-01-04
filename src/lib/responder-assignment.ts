@@ -32,11 +32,17 @@ export async function findClosestResponders(
     .not('responder_location_lng', 'is', null);
 
   if (error) {
-    console.error('Error fetching responders:', error);
+    console.error('[findClosestResponders] Error fetching responders:', error);
     return [];
   }
 
+  console.log('[findClosestResponders] Found responders:', {
+    count: responders?.length || 0,
+    responderIds: responders?.map(r => r.user_id) || []
+  });
+
   if (!responders || responders.length === 0) {
+    console.warn('[findClosestResponders] No responders found with valid locations');
     return [];
   }
 
@@ -124,14 +130,28 @@ export async function createAssignmentRequests(
     // Find closest responders
     const closestResponders = await findClosestResponders(detectionLat, detectionLng, 5);
 
+    console.log('[createAssignmentRequests] Closest responders found:', {
+      count: closestResponders.length,
+      responderIds: closestResponders.map(r => r.user_id),
+      responderEmails: closestResponders.map(r => r.email)
+    });
+
     if (closestResponders.length === 0) {
+      console.warn('[createAssignmentRequests] No responders with valid locations found');
       return { success: false, requestsCreated: 0, error: 'No responders with valid locations found' };
     }
 
     // Filter out responders who already have pending requests
     const newResponders = closestResponders.filter(r => !existingResponderIds.has(r.user_id));
 
+    console.log('[createAssignmentRequests] New responders (after filtering):', {
+      count: newResponders.length,
+      responderIds: newResponders.map(r => r.user_id),
+      existingResponderIds: Array.from(existingResponderIds)
+    });
+
     if (newResponders.length === 0) {
+      console.log('[createAssignmentRequests] All closest responders already have pending requests');
       return { 
         success: true, 
         requestsCreated: 0, 
@@ -150,11 +170,43 @@ export async function createAssignmentRequests(
       expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
     }));
 
+    console.log('[createAssignmentRequests] Creating requests:', {
+      detectionId,
+      requestCount: requests.length,
+      responderIds: requests.map(r => r.responder_id),
+      statuses: requests.map(r => r.status)
+    });
+
     // Insert all requests
     const { data: createdRequests, error: insertError } = await supabaseAdmin
       .from('assignment_requests')
       .insert(requests)
       .select();
+
+    console.log('[createAssignmentRequests] Insert result:', {
+      success: !insertError,
+      createdCount: createdRequests?.length || 0,
+      createdIds: createdRequests?.map(r => r.id) || [],
+      createdResponderIds: createdRequests?.map(r => r.responder_id) || [],
+      createdStatuses: createdRequests?.map(r => r.status) || [],
+      error: insertError?.message,
+      errorCode: insertError?.code,
+      errorDetails: insertError
+    });
+
+    // Verify the requests were actually saved
+    if (createdRequests && createdRequests.length > 0) {
+      const verifyIds = createdRequests.map(r => r.id);
+      const { data: verifiedRequests } = await supabaseAdmin
+        .from('assignment_requests')
+        .select('id, responder_id, status, detection_id')
+        .in('id', verifyIds);
+      
+      console.log('[createAssignmentRequests] Verified requests in database:', {
+        verifiedCount: verifiedRequests?.length || 0,
+        verified: verifiedRequests || []
+      });
+    }
 
     if (insertError) {
       // Handle duplicate key error gracefully

@@ -9,10 +9,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'example.com',
-      },
-      {
-        protocol: 'https',
         hostname: '**.supabase.in',
       },
       {
@@ -23,7 +19,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      // Allow placeholder URLs for testing (remove in production)
+      {
+        protocol: 'https',
+        hostname: 'your-storage-url.com',
+      },
     ],
+    // Allow unoptimized images as fallback for invalid URLs
+    unoptimized: false,
   },
 };
 

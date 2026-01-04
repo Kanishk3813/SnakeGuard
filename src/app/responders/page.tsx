@@ -50,6 +50,85 @@ export default function RespondersPage() {
     }
   }, [user, selectedTab]);
 
+  // Set up real-time subscriptions for assignment requests and new detections
+  useEffect(() => {
+    if (!user) return;
+
+    let channels: any[] = [];
+
+    const setupSubscriptions = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Subscribe to assignment_requests table changes
+      const requestsChannel = supabase
+        .channel('assignment_requests_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'assignment_requests',
+            filter: `responder_id=eq.${session.user.id}`
+          },
+          (payload) => {
+            console.log('Assignment request change detected:', payload);
+            loadData();
+          }
+        )
+        .subscribe();
+      channels.push(requestsChannel);
+
+      // Subscribe to new snake detections
+      const detectionsChannel = supabase
+        .channel('snake_detections_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'snake_detections'
+          },
+          (payload) => {
+            console.log('New detection created:', payload);
+            // Reload data to show new unassigned detection
+            loadData();
+          }
+        )
+        .subscribe();
+      channels.push(detectionsChannel);
+
+      // Subscribe to responder_assignments changes (to update unassigned list)
+      const assignmentsChannel = supabase
+        .channel('responder_assignments_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'responder_assignments'
+          },
+          (payload) => {
+            console.log('Assignment change detected:', payload);
+            loadData();
+          }
+        )
+        .subscribe();
+      channels.push(assignmentsChannel);
+    };
+
+    setupSubscriptions();
+
+    return () => {
+      channels.forEach(channel => {
+        if (channel) {
+          supabase.removeChannel(channel);
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   const checkUser = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
