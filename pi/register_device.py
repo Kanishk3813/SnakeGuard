@@ -7,13 +7,8 @@ Run this once to register your Raspberry Pi, or set it to run on startup.
 Usage:
     python register_device.py
 
-Environment Variables:
-    SUPABASE_URL - Your Supabase project URL
-    SUPABASE_KEY - Your Supabase anon key (or service role key)
-    DEVICE_NAME - Optional custom name for the camera (default: "Camera")
-    DEVICE_LATITUDE - Optional latitude for camera location
-    DEVICE_LONGITUDE - Optional longitude for camera location
-    STREAM_PORT - Port for video stream (default: 8080)
+Configuration:
+    Edit the variables below to configure your device registration.
 """
 
 import os
@@ -21,6 +16,24 @@ import uuid
 import socket
 import requests
 from datetime import datetime
+
+# ============================================================================
+# CONFIGURATION - Edit these values
+# ============================================================================
+
+# Supabase Configuration
+SUPABASE_URL = "https://your-project.supabase.co"  # Replace with your Supabase URL
+SUPABASE_KEY = "your-service-role-key-here"  # Replace with your Supabase SERVICE ROLE key (not anon key)
+
+# Device Configuration
+DEVICE_NAME = "Camera"  # Custom name for your camera (or leave as "Camera")
+DEVICE_LATITUDE = None  # Optional: Set to your camera's latitude (e.g., 12.9716)
+DEVICE_LONGITUDE = None  # Optional: Set to your camera's longitude (e.g., 77.5946)
+STREAM_PORT = 8080  # Port for video stream (default: 8080)
+
+# ============================================================================
+# END CONFIGURATION
+# ============================================================================
 
 try:
     from supabase import create_client, Client
@@ -57,20 +70,25 @@ def register_device():
         print("❌ Supabase client not available")
         return False
     
-    SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-    SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+    # Check if configuration is set
+    if not SUPABASE_URL or SUPABASE_URL == "https://your-project.supabase.co":
+        print("❌ ERROR: Please edit register_device.py and set SUPABASE_URL")
+        print("   Get your Supabase URL from: Dashboard → Settings → API")
+        return False
     
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("❌ SUPABASE_URL and SUPABASE_KEY environment variables required")
+    if not SUPABASE_KEY or SUPABASE_KEY == "your-service-role-key-here":
+        print("❌ ERROR: Please edit register_device.py and set SUPABASE_KEY")
+        print("   Get your Service Role key from: Dashboard → Settings → API → service_role (secret)")
+        print("   ⚠️  Use the SERVICE ROLE key (not anon key) to bypass RLS")
         return False
     
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     
     device_id = get_device_id()
-    device_name = os.environ.get("DEVICE_NAME", f"Camera-{socket.gethostname()}")
-    latitude = os.environ.get("DEVICE_LATITUDE")
-    longitude = os.environ.get("DEVICE_LONGITUDE")
-    stream_port = int(os.environ.get("STREAM_PORT", 8080))
+    device_name = DEVICE_NAME if DEVICE_NAME else f"Camera-{socket.gethostname()}"
+    latitude = DEVICE_LATITUDE
+    longitude = DEVICE_LONGITUDE
+    stream_port = STREAM_PORT
     
     local_ip = get_local_ip()
     stream_url = f"http://{local_ip}:{stream_port}/stream"
@@ -79,6 +97,8 @@ def register_device():
     print(f"   Device ID: {device_id}")
     print(f"   Name: {device_name}")
     print(f"   Stream URL: {stream_url}")
+    if latitude and longitude:
+        print(f"   Location: {latitude}, {longitude}")
     
     # Check if device already exists
     existing = supabase.table("cameras").select("*").eq("device_id", device_id).execute()
@@ -92,9 +112,9 @@ def register_device():
         "last_seen": datetime.utcnow().isoformat(),
     }
     
-    if latitude:
+    if latitude is not None:
         device_data["latitude"] = float(latitude)
-    if longitude:
+    if longitude is not None:
         device_data["longitude"] = float(longitude)
     
     try:

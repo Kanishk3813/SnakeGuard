@@ -130,7 +130,7 @@ pip install -r requirements.txt
 # Configure environment variables
 export APP_BASE_URL=https://your-app.vercel.app
 export SUPABASE_URL=your_supabase_url
-export SUPABASE_KEY=your_supabase_anon_key
+export SUPABASE_KEY=your_supabase_service_role_key  # ⚠️ Use SERVICE ROLE key (not anon key) to bypass RLS
 
 # Optional: Enable offline mode (recommended for remote deployments)
 export OFFLINE_MODE=auto  # Options: "auto", "always", "never"

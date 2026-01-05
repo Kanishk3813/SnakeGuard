@@ -77,6 +77,9 @@ recent_detection_times = []
 OFFLINE_STORAGE_DIR = os.path.join(os.path.dirname(__file__), "offline_detections")
 os.makedirs(OFFLINE_STORAGE_DIR, exist_ok=True)
 
+# Shared frame file for stream server (so both scripts can run simultaneously)
+SHARED_FRAME_FILE = "/tmp/snake_latest_frame.jpg"
+
 def check_connection():
     """Check if internet connection is available"""
     try:
@@ -261,6 +264,16 @@ while True:
 
                     # Upload with offline fallback
                     upload_detection(image_path, conf)
+
+    # Save latest frame for stream server (so both scripts can run simultaneously)
+    # This is updated in REAL-TIME, so the stream will be LIVE
+    try:
+        # Use atomic write to avoid file corruption if stream_server reads while writing
+        temp_file = SHARED_FRAME_FILE + ".tmp"
+        cv2.imwrite(temp_file, frame)
+        os.replace(temp_file, SHARED_FRAME_FILE)  # Atomic rename
+    except Exception as e:
+        pass  # Non-critical, continue even if frame save fails
 
     # Show the video feed
     cv2.imshow("Snake Detection", frame)
