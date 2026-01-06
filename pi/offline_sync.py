@@ -84,10 +84,11 @@ class OfflineSync:
                 "image_url": public_url,
             }
             
-            if queued_detection['latitude']:
-                detection_data['latitude'] = queued_detection['latitude']
-            if queued_detection['longitude']:
-                detection_data['longitude'] = queued_detection['longitude']
+            # Add location if available (check for None explicitly)
+            if queued_detection.get('latitude') is not None:
+                detection_data['latitude'] = float(queued_detection['latitude'])
+            if queued_detection.get('longitude') is not None:
+                detection_data['longitude'] = float(queued_detection['longitude'])
             
             response = self.supabase.table("snake_detections").insert(detection_data).execute()
             

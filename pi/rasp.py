@@ -34,9 +34,57 @@ last_detection_time = 0
 last_settings_refresh = 0
 recent_detection_times = []
 
+def get_device_id():
+    """Get unique device identifier (MAC address)"""
+    try:
+        mac = ':'.join(['{:02x}'.format((uuid.getnode() >> i) & 0xff) 
+                       for i in range(0, 8*6, 8)][::-1])
+        return mac
+    except:
+        import socket
+        return socket.gethostname()
+
+def get_device_location():
+    """
+    Get device location from multiple sources (priority order):
+    1. Environment variables (DEVICE_LATITUDE, DEVICE_LONGITUDE)
+    2. Camera record in database (if device is registered)
+    3. Returns None, None if not found
+    """
+    # Try environment variables first
+    env_lat = os.environ.get("DEVICE_LATITUDE")
+    env_lng = os.environ.get("DEVICE_LONGITUDE")
+    if env_lat and env_lng:
+        try:
+            return float(env_lat), float(env_lng)
+        except ValueError:
+            print(f"⚠️ Invalid location in environment variables: {env_lat}, {env_lng}")
+    
+    # Try to get from camera record in database
+    if supabase:
+        try:
+            device_id = get_device_id()
+            camera_result = supabase.table("cameras").select("latitude, longitude").eq("device_id", device_id).execute()
+            if camera_result.data and len(camera_result.data) > 0:
+                camera = camera_result.data[0]
+                if camera.get("latitude") and camera.get("longitude"):
+                    return float(camera["latitude"]), float(camera["longitude"])
+        except Exception as e:
+            print(f"⚠️ Could not fetch location from camera record: {e}")
+    
+    return None, None
+
 def upload_detection(image_path, confidence):
     detection_id = None
     try:
+        # Get device location
+        latitude, longitude = get_device_location()
+        if latitude and longitude:
+            print(f"📍 Using device location: {latitude}, {longitude}")
+        else:
+            print("⚠️ No device location configured. Detection will be saved without location.")
+            print("   Set DEVICE_LATITUDE and DEVICE_LONGITUDE environment variables, or register device with location.")
+        
         image_name = f"{uuid.uuid4()}.jpg"
         # Try storage upload first
         print("Attempting storage upload...")
@@ -50,13 +98,18 @@ def upload_detection(image_path, confidence):
         
         # Then try database insert
         print("Attempting database insert...")
-        response = supabase.table("snake_detections").insert({
+        detection_data = {
             "timestamp": datetime.utcnow().isoformat(),
             "confidence": round(confidence, 2),
             "image_url": public_url,
-            # "latitude":, # Add your latitude here
-            # "longitude": # Add your longitude here
-        }).execute()
+        }
+        
+        # Add location if available
+        if latitude is not None and longitude is not None:
+            detection_data["latitude"] = latitude
+            detection_data["longitude"] = longitude
+        
+        response = supabase.table("snake_detections").insert(detection_data).execute()
         print(f"Database insert response: {response}")
         
         # Extract detection ID from response

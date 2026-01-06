@@ -54,11 +54,22 @@ export default function PredictivePathMap({
 
   // Load prediction
   const loadPrediction = async () => {
+    if (!detectionId) {
+      setError('No detection ID provided');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
       const response = await fetch(`/api/detections/${detectionId}/predict-path`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       if (data.success && data.prediction) {
@@ -67,6 +78,7 @@ export default function PredictivePathMap({
         setError(data.error || 'Failed to load prediction');
       }
     } catch (err: any) {
+      console.error('Error loading prediction:', err);
       setError(err.message || 'Error loading prediction');
     } finally {
       setLoading(false);
@@ -74,6 +86,8 @@ export default function PredictivePathMap({
   };
 
   useEffect(() => {
+    if (!detectionId) return;
+    
     loadPrediction();
 
     // Auto-refresh every 5 minutes
@@ -87,6 +101,7 @@ export default function PredictivePathMap({
     return () => {
       if (refreshInterval) clearInterval(refreshInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detectionId, autoRefresh]);
 
   // Initialize map
@@ -522,19 +537,27 @@ export default function PredictivePathMap({
       )}
 
       {/* Loading State */}
-      {loading && (
-        <div className="flex justify-center items-center py-8 bg-white rounded-lg border border-gray-200">
-          <RefreshCw className="h-6 w-6 animate-spin text-green-600" />
+      {loading && !prediction && (
+        <div className="flex flex-col justify-center items-center py-12 bg-white rounded-lg border border-gray-200">
+          <RefreshCw className="h-8 w-8 animate-spin text-green-600 mb-3" />
+          <p className="text-sm text-gray-600">Loading prediction data...</p>
         </div>
       )}
 
       {/* Error State */}
-      {error && (
+      {error && !loading && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="h-5 w-5 text-red-600" />
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm font-semibold text-red-800">Error loading prediction</p>
           </div>
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            onClick={loadPrediction}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
+          >
+            Retry
+          </button>
         </div>
       )}
 

@@ -44,6 +44,36 @@ def get_device_id():
 
 DEVICE_ID = get_device_id()
 
+# Location configuration - can be set via environment variables or camera record
+def get_device_location():
+    """
+    Get device location from multiple sources (priority order):
+    1. Environment variables (DEVICE_LATITUDE, DEVICE_LONGITUDE)
+    2. Camera record in database (if device is registered)
+    3. Returns None, None if not found
+    """
+    # Try environment variables first
+    env_lat = os.environ.get("DEVICE_LATITUDE")
+    env_lng = os.environ.get("DEVICE_LONGITUDE")
+    if env_lat and env_lng:
+        try:
+            return float(env_lat), float(env_lng)
+        except ValueError:
+            print(f"⚠️ Invalid location in environment variables: {env_lat}, {env_lng}")
+    
+    # Try to get from camera record in database
+    if supabase:
+        try:
+            camera_result = supabase.table("cameras").select("latitude, longitude").eq("device_id", DEVICE_ID).execute()
+            if camera_result.data and len(camera_result.data) > 0:
+                camera = camera_result.data[0]
+                if camera.get("latitude") and camera.get("longitude"):
+                    return float(camera["latitude"]), float(camera["longitude"])
+        except Exception as e:
+            print(f"⚠️ Could not fetch location from camera record: {e}")
+    
+    return None, None
+
 # Load the YOLOv8 model
 model = YOLO("best.pt")  
 
@@ -262,8 +292,16 @@ while True:
                     image_path = f"/tmp/snake_detected_{int(time.time())}.jpg"
                     cv2.imwrite(image_path, frame)
 
+                    # Get device location
+                    latitude, longitude = get_device_location()
+                    if latitude and longitude:
+                        print(f"📍 Using device location: {latitude}, {longitude}")
+                    else:
+                        print("⚠️ No device location configured. Detection will be saved without location.")
+                        print("   Set DEVICE_LATITUDE and DEVICE_LONGITUDE environment variables, or register device with location.")
+
                     # Upload with offline fallback
-                    upload_detection(image_path, conf)
+                    upload_detection(image_path, conf, latitude=latitude, longitude=longitude)
 
     # Save latest frame for stream server (so both scripts can run simultaneously)
     # This is updated in REAL-TIME, so the stream will be LIVE

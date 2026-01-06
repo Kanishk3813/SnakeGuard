@@ -968,8 +968,9 @@ export default function RespondersPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              {selectedDetection.latitude && selectedDetection.longitude && (
+              {selectedDetection.latitude && selectedDetection.longitude ? (
                 <PredictivePathMap
+                  key={selectedDetection.id}
                   detectionId={selectedDetection.id}
                   initialLatitude={selectedDetection.latitude}
                   initialLongitude={selectedDetection.longitude}
@@ -977,6 +978,11 @@ export default function RespondersPage() {
                   species={selectedDetection.species}
                   status={selectedDetection.status}
                 />
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                  <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                  <p className="text-yellow-800 font-medium">No location data available for this detection</p>
+                </div>
               )}
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
