@@ -36,7 +36,7 @@ body {
   pointer-events: auto !important;
 }
 
-.custom-snake-marker > div {
+.custom-snake-marker>div {
   cursor: pointer !important;
   transition: transform 0.2s, box-shadow 0.2s;
   pointer-events: auto !important;
@@ -44,14 +44,14 @@ body {
   z-index: 1000 !important;
 }
 
-.custom-snake-marker > div:hover {
+.custom-snake-marker>div:hover {
   transform: scale(1.15);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
   z-index: 1001 !important;
 }
 
 .custom-snake-marker svg {
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 /* Ensure Leaflet markers are visible */
