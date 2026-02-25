@@ -82,8 +82,9 @@ export default function Header() {
             table: 'snake_detections',
           },
           () => {
+            // Only reload notifications on new detection, not system status
+            // (system status polls on its own interval to avoid excessive queries)
             loadNotifications();
-            loadSystemStatus();
           }
         )
         .subscribe();
@@ -94,12 +95,12 @@ export default function Header() {
     }
   }, [user]);
 
-  // Poll system status periodically
+  // Poll system status periodically (reduced frequency to save database requests)
   useEffect(() => {
     if (user) {
       const interval = setInterval(() => {
         loadSystemStatus();
-      }, 30000); // Check every 30 seconds
+      }, 120000); // Check every 2 minutes (was 30s)
 
       return () => clearInterval(interval);
     }
@@ -232,36 +233,36 @@ export default function Header() {
 
   const loadSystemStatus = async () => {
     try {
-      // Check system settings for alert status
-      const { data: settings } = await supabase
-        .from('system_settings')
-        .select('alert_enabled')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Combined into a single query to reduce database requests
+      // Fetches the last detection (which also tells us about recent activity)
+      const [settingsRes, lastDetectionRes] = await Promise.all([
+        supabase
+          .from('system_settings')
+          .select('alert_enabled')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('snake_detections')
+          .select('timestamp')
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-      // Check for recent activity (detections in last hour)
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { data: recentDetections } = await supabase
-        .from('snake_detections')
-        .select('timestamp')
-        .gte('timestamp', oneHourAgo)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const settings = settingsRes.data;
+      const lastDetection = lastDetectionRes.data;
 
-      // Get last detection time
-      const { data: lastDetection } = await supabase
-        .from('snake_detections')
-        .select('timestamp')
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Determine recent activity from the last detection timestamp
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      const hasRecentActivity = lastDetection?.timestamp
+        ? new Date(lastDetection.timestamp).getTime() > oneHourAgo
+        : false;
 
       setSystemStatus({
         active: settings?.alert_enabled !== false,
         alertEnabled: settings?.alert_enabled ?? true,
-        recentActivity: !!recentDetections,
+        recentActivity: hasRecentActivity,
         lastDetection: lastDetection?.timestamp,
       });
     } catch (error) {

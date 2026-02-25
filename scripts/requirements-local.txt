@@ -1,0 +1,7 @@
+# Requirements for local snake detection server (scripts/local_detector.py)
+# Install: pip install -r scripts/requirements-local.txt
+
+flask>=3.0.0
+flask-cors>=4.0.0
+ultralytics>=8.0.0
+opencv-python>=4.8.0
