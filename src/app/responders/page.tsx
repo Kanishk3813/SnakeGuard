@@ -470,20 +470,23 @@ export default function RespondersPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50">
-        <Header />
-        <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Header />
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto">
             <div className="mb-8">

@@ -8,7 +8,7 @@ import LocationFilter from "@/components/ui/location-filter";
 import { supabase } from "@/lib/supabase";
 import { SnakeDetection } from "@/types";
 import { calculateDistance } from "@/lib/utils";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function DetectionsPage() {
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ export default function DetectionsPage() {
     useState(false);
   const [selectedRadius, setSelectedRadius] = useState<number>(50);
   const [exporting, setExporting] = useState(false);
-  const itemsPerPage = 12;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     fetchDetections();
@@ -82,12 +82,8 @@ export default function DetectionsPage() {
         return;
       }
 
-      // Build query params based on current filters
       const params = new URLSearchParams();
       params.set('format', format);
-      if (filter === 'high') {
-        // Note: API doesn't support confidence filter, but we can add it if needed
-      }
 
       const headers: HeadersInit = {
         'Authorization': `Bearer ${session.access_token}`,
@@ -157,143 +153,122 @@ export default function DetectionsPage() {
     page * itemsPerPage
   );
 
+  const filterOptions = [
+    { label: 'All', value: 'all' },
+    { label: 'High Confidence', value: 'high' },
+    { label: 'Low Confidence', value: 'low' },
+  ];
+
+  // Generate smart page numbers
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+        pages.push(i);
+      }
+      if (page < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl font-bold text-gray-900 mb-8">
-              Snake Detections
-            </h1>
+    <div className="flex h-screen bg-[#f7f8fa]">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
+            {/* Page Title */}
+            <div className="section-fade-up mb-6">
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                Snake Detections
+              </h1>
+            </div>
 
-            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-              <div className="w-full md:w-1/2 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+            {/* Filter Bar */}
+            <div className="section-fade-up flex flex-col gap-4 mb-6" style={{ animationDelay: '100ms' }}>
+              {/* Row 1: Search + Location + Radius */}
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+                {/* Search */}
+                <div className="relative w-full md:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search detections..."
+                    className="pl-10 pr-4 py-2 w-full bg-white border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all duration-200"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setPage(1);
+                    }}
+                  />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search detections..."
-                  className="pl-10 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+
+                {/* Location + Radius */}
+                <LocationFilter
+                  onLocationPermission={handleLocationPermission}
+                  onRadiusChange={handleRadiusChange}
                 />
-              </div>
 
-              <div className="flex w-full md:w-auto gap-2">
-                <div className="inline-flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
-                  <button
-                    onClick={() => handleExport('csv')}
-                    disabled={exporting}
-                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-r border-gray-300"
-                    title="Export as CSV"
-                  >
-                    {exporting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-1" />
-                        CSV
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleExport('pdf')}
-                    disabled={exporting}
-                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Export as PDF"
-                  >
-                    {exporting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <FileText className="h-4 w-4 mr-1" />
-                        PDF
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="flex">
-                  <button
-                    onClick={() => setFilter("all")}
-                    className={`px-4 py-2 rounded-l-lg ${
-                      filter === "all"
-                        ? "bg-green-600 text-white"
-                        : "bg-white text-gray-700 border border-gray-300"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setFilter("high")}
-                    className={`px-4 py-2 ${
-                      filter === "high"
-                        ? "bg-green-600 text-white"
-                        : "bg-white text-gray-700 border-t border-b border-gray-300"
-                    }`}
-                  >
-                    High Confidence
-                  </button>
-                  <button
-                    onClick={() => setFilter("low")}
-                    className={`px-4 py-2 rounded-r-lg ${
-                      filter === "low"
-                        ? "bg-green-600 text-white"
-                        : "bg-white text-gray-700 border border-gray-300"
-                    }`}
-                  >
-                    Low Confidence
-                  </button>
+                {/* Spacer */}
+                <div className="hidden md:block flex-1" />
+
+                {/* Confidence Filters */}
+                <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  {filterOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setFilter(opt.value);
+                        setPage(1);
+                      }}
+                      className={`px-4 py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                        filter === opt.value
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <LocationFilter
-              onLocationPermission={handleLocationPermission}
-              onRadiusChange={handleRadiusChange}
-            />
-
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
+              /* Skeleton loader */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div className="aspect-[4/3] skeleton-shimmer" />
+                    <div className="p-4">
+                      <div className="skeleton-shimmer w-3/4 h-4 rounded-lg mb-2" />
+                      <div className="skeleton-shimmer w-1/2 h-3 rounded mb-2" />
+                      <div className="skeleton-shimmer w-2/5 h-3 rounded mb-3" />
+                      <div className="flex gap-2 pt-3 border-t border-gray-100">
+                        <div className="skeleton-shimmer flex-1 h-8 rounded-xl" />
+                        <div className="skeleton-shimmer flex-1 h-8 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <>
                 {filteredDetections.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow-md p-6 text-center">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-12 w-12 text-gray-400 mx-auto mb-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1}
-                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
+                  <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center section-fade-up">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-14 w-14 text-gray-200 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">
                       No detections found
                     </h3>
-                    <p className="text-gray-500 mt-2">
+                    <p className="text-sm text-gray-400 max-w-sm mx-auto">
                       {locationPermissionGranted &&
                       userLocation &&
                       selectedRadius > 0
@@ -303,8 +278,9 @@ export default function DetectionsPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex justify-between items-center mb-4">
-                      <p className="text-sm text-gray-600">
+                    {/* Results info + export */}
+                    <div className="flex items-center justify-between mb-4 section-fade-up" style={{ animationDelay: '150ms' }}>
+                      <p className="text-sm text-gray-500">
                         {locationPermissionGranted &&
                         userLocation &&
                         selectedRadius > 0
@@ -312,99 +288,107 @@ export default function DetectionsPage() {
                               filteredDetections.length === 1
                                 ? "detection"
                                 : "detections"
-                            } within ${selectedRadius} km of your location`
-                          : `Showing ${filteredDetections.length} ${
+                            } within ${selectedRadius} km`
+                          : `${filteredDetections.length} ${
                               filteredDetections.length === 1
                                 ? "detection"
                                 : "detections"
-                            }`}
+                            } found`}
                       </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleExport('csv')}
+                          disabled={exporting}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Export as CSV"
+                        >
+                          {exporting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                          CSV
+                        </button>
+                        <button
+                          onClick={() => handleExport('pdf')}
+                          disabled={exporting}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Export as PDF"
+                        >
+                          {exporting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <FileText className="h-3.5 w-3.5" />
+                          )}
+                          PDF
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-                      {paginatedDetections.map((detection) => (
-                        <DetectionCard
+                    {/* Detection Cards Grid — 5 columns on xl to match reference */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-stretch">
+                      {paginatedDetections.map((detection, index) => (
+                        <div
                           key={detection.id}
-                          detection={detection}
-                          userLocation={userLocation}
-                        />
+                          className="detection-card-enter"
+                          style={{ animationDelay: `${200 + index * 50}ms` }}
+                        >
+                          <DetectionCard
+                            detection={detection}
+                            userLocation={userLocation}
+                          />
+                        </div>
                       ))}
                     </div>
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                      <div className="mt-8 flex justify-center">
-                        <nav
-                          className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
-                          aria-label="Pagination"
+                      <div className="mt-8 flex justify-center items-center gap-1 section-fade-up" style={{ animationDelay: '300ms' }}>
+                        <button
+                          onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                          disabled={page === 1}
+                          className={`inline-flex items-center justify-center w-9 h-9 rounded-xl text-sm font-medium transition-all duration-200 ${
+                            page === 1
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-gray-500 hover:bg-gray-100 active:scale-95"
+                          }`}
                         >
-                          <button
-                            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                            disabled={page === 1}
-                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                              page === 1
-                                ? "text-gray-300"
-                                : "text-gray-500 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="sr-only">Previous</span>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
 
-                          {Array.from(
-                            { length: totalPages },
-                            (_, i) => i + 1
-                          ).map((pageNum) => (
+                        {getPageNumbers().map((pageNum, i) => 
+                          pageNum === 'ellipsis' ? (
+                            <span key={`ellipsis-${i}`} className="w-9 h-9 flex items-center justify-center text-gray-400 text-sm">
+                              ···
+                            </span>
+                          ) : (
                             <button
                               key={pageNum}
                               onClick={() => setPage(pageNum)}
-                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              className={`inline-flex items-center justify-center w-9 h-9 rounded-xl text-sm font-medium transition-all duration-200 ${
                                 page === pageNum
-                                  ? "z-10 bg-green-50 border-green-500 text-green-600"
-                                  : "bg-white border-gray-300 text-gray-500 hover:bg-gray-50"
+                                  ? "bg-gray-900 text-white shadow-sm"
+                                  : "text-gray-500 hover:bg-gray-100 active:scale-95"
                               }`}
                             >
                               {pageNum}
                             </button>
-                          ))}
+                          )
+                        )}
 
-                          <button
-                            onClick={() =>
-                              setPage((p) => Math.min(p + 1, totalPages))
-                            }
-                            disabled={page === totalPages}
-                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                              page === totalPages
-                                ? "text-gray-300"
-                                : "text-gray-500 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="sr-only">Next</span>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
-                        </nav>
+                        <button
+                          onClick={() =>
+                            setPage((p) => Math.min(p + 1, totalPages))
+                          }
+                          disabled={page === totalPages}
+                          className={`inline-flex items-center justify-center w-9 h-9 rounded-xl text-sm font-medium transition-all duration-200 ${
+                            page === totalPages
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-gray-500 hover:bg-gray-100 active:scale-95"
+                          }`}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                   </>

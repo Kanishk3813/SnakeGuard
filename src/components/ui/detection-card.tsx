@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { SnakeDetection } from "@/types";
 import {
   formatDate,
@@ -35,27 +36,27 @@ export default function DetectionCard({
   const markerRef = useRef<any>(null);
   const leafletLoadedRef = useRef<boolean>(false);
 
-  // Risk level styling - subtle and professional
+  // Risk level styling — matching reference image
   const riskLevelConfig = {
     critical: {
-      badge: "bg-gray-900 text-white",
-      dot: "bg-gray-900",
+      badge: "bg-red-100 text-red-700 border border-red-200",
       label: "Critical",
+      icon: true,
     },
     high: {
-      badge: "bg-gray-700 text-white",
-      dot: "bg-gray-700",
+      badge: "bg-orange-100 text-orange-700 border border-orange-200",
       label: "High Risk",
+      icon: true,
     },
     medium: {
-      badge: "bg-gray-500 text-white",
-      dot: "bg-gray-500",
-      label: "Medium",
+      badge: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+      label: "Low Risk",
+      icon: false,
     },
     low: {
-      badge: "bg-gray-300 text-gray-700",
-      dot: "bg-gray-300",
+      badge: "bg-emerald-100 text-emerald-700 border border-emerald-200",
       label: "Low Risk",
+      icon: false,
     },
   };
 
@@ -155,16 +156,16 @@ export default function DetectionCard({
   }, [showMap, hasCoordinates]); 
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md border border-gray-200 flex flex-col h-full">
+    <div className="bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 border border-gray-100 flex flex-col h-full group">
       {/* Image Section */}
       <div className="relative">
-        <div className="aspect-video relative overflow-hidden bg-gray-100">
+        <div className="aspect-[4/3] relative overflow-hidden bg-gray-100">
           {!imageError && detection.image_url ? (
             <Image
               src={detection.image_url}
               alt={`Snake detected at ${formatDate(detection.timestamp)}`}
               fill
-              className="object-cover"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={() => setImageError(true)}
             />
@@ -177,51 +178,48 @@ export default function DetectionCard({
             </div>
           )}
           
-          {/* Subtle overlays */}
-          <div className="absolute top-3 left-3 flex items-center gap-2">
+          {/* Top overlays - Confidence badge (left) + Risk badge (right) */}
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+            <span className="bg-gray-900/70 text-white px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-sm">
+              {(detection.confidence * 100).toFixed(0)}% Confidence
+            </span>
+          </div>
+
+          <div className="absolute top-3 right-3 flex items-center gap-1.5">
             {detection.risk_level && (
-              <span className={`${riskConfig.badge} px-2.5 py-1 rounded text-xs font-medium`}>
+              <span className={`${riskConfig.badge} px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-sm flex items-center gap-1`}>
+                {riskConfig.icon && (
+                  <AlertTriangle className="h-3 w-3" />
+                )}
                 {riskConfig.label}
               </span>
             )}
-            {detection.venomous && (
-              <span className="bg-gray-800 text-white px-2.5 py-1 rounded text-xs font-medium">
-                Venomous
-              </span>
-            )}
-          </div>
-
-          <div className="absolute top-3 right-3">
-            <div className="bg-black bg-opacity-60 text-white px-2.5 py-1 rounded text-xs font-medium backdrop-blur-sm">
-              {(detection.confidence * 100).toFixed(0)}%
-            </div>
           </div>
 
           {detection.processed === false && (
-            <div className="absolute bottom-3 left-3 bg-gray-800 text-white px-2.5 py-1 rounded text-xs font-medium">
+            <div className="absolute bottom-3 left-3 bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-xs font-semibold">
               New
             </div>
           )}
         </div>
       </div>
 
-      {/* Content Section - Compact */}
+      {/* Content Section */}
       <div className="p-4 flex-1 flex flex-col min-h-0">
         {/* Species Name */}
-        <h3 className="font-semibold text-gray-900 text-base mb-2">
+        <h3 className="font-semibold text-gray-900 text-[15px] mb-2 leading-snug">
           {detection.species || "Unknown Species"}
         </h3>
 
-        {/* Essential Info Only */}
-        <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-xs text-gray-600 mb-3">
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-            <span suppressHydrationWarning>{timeAgo || formatDate(detection.classified_at || detection.timestamp)}</span>
-          </div>
+        {/* Meta info */}
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-gray-500 mb-3">
+          <span className="whitespace-nowrap" suppressHydrationWarning>
+            {timeAgo || formatDate(detection.classified_at || detection.timestamp)}
+          </span>
           {hasCoordinates && userLocation && (
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>
+            <>
+              <span className="text-gray-300">·</span>
+              <span className="whitespace-nowrap">
                 {calculateDistance(
                   userLocation.lat,
                   userLocation.lng,
@@ -229,40 +227,42 @@ export default function DetectionCard({
                   detection.longitude!
                 ).toFixed(1)} km away
               </span>
-            </div>
-          )}
-          {detection.venomous !== undefined && (
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${detection.venomous ? 'bg-gray-800' : 'bg-gray-300'}`} />
-              <span>{detection.venomous ? "Venomous" : "Non-venomous"}</span>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Action Buttons - Always at bottom */}
+        {/* Venomous status */}
+        {detection.venomous !== undefined && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
+            <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${detection.venomous ? 'bg-red-500' : 'bg-gray-300'}`} />
+            <span>{detection.venomous ? "Venomous" : "Non-venomous"}</span>
+          </div>
+        )}
+
+        {/* Action Buttons — Always at bottom */}
         <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100">
           {hasCoordinates && (
             <button
               onClick={handleViewMap}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-800 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 active:scale-95"
             >
-              <Map className="h-3.5 w-3.5 mr-1.5" />
+              <MapPin className="h-3.5 w-3.5" />
               Map
             </button>
           )}
 
           <button
             onClick={() => setShowDetailsModal(true)}
-            className="flex items-center justify-center px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded text-xs font-medium hover:bg-gray-50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 active:scale-95"
           >
-            <Info className="h-3.5 w-3.5 mr-1.5" />
+            <Info className="h-3.5 w-3.5" />
             Details
           </button>
         </div>
       </div>
 
-      {/* Details Modal */}
-      {showDetailsModal && (
+      {/* Details Modal — rendered via portal to avoid transform containment issues */}
+      {showDetailsModal && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
           onClick={() => setShowDetailsModal(false)}
@@ -388,10 +388,10 @@ export default function DetectionCard({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
-      {/* Map Popup */}
-      {showMap && hasCoordinates && (
+      {/* Map Popup — rendered via portal to avoid transform containment issues */}
+      {showMap && hasCoordinates && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-full flex flex-col overflow-hidden">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -433,8 +433,7 @@ export default function DetectionCard({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
-

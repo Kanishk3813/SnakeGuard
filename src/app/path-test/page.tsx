@@ -257,10 +257,10 @@ export default function PathTestPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+    <div className="flex h-screen bg-gray-950">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-7xl mx-auto">
             {/* Page Header */}

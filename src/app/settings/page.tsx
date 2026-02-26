@@ -201,10 +201,10 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-screen bg-gray-50">
-        <Header />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Header />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
@@ -216,10 +216,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">

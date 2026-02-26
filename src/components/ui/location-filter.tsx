@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { MapPin, Loader } from 'lucide-react';
-import { useCallback } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { MapPin, Loader, X } from 'lucide-react';
 
 interface LocationFilterProps {
   onRadiusChange: (radius: number) => void;
@@ -113,56 +114,54 @@ export default function LocationFilter({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
+    <div className="flex items-center gap-3">
       {!hasPermission ? (
         <button
           onClick={requestLocationPermission}
           disabled={isLoading}
-          className="flex items-center px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 active:scale-95"
         >
           {isLoading ? (
             <>
-              <Loader className="animate-spin h-3.5 w-3.5 mr-1.5" />
-              <span>Loading...</span>
+              <Loader className="animate-spin h-4 w-4 text-emerald-500" />
+              <span>Locating...</span>
             </>
           ) : (
             <>
-              <MapPin className="h-3.5 w-3.5 mr-1.5 text-green-600" />
+              <MapPin className="h-4 w-4 text-emerald-500" />
               <span>Use my location</span>
             </>
           )}
         </button>
       ) : (
         <>
-          <div className="flex items-center text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">
-            <MapPin className="h-3 w-3 mr-1" />
+          <div className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-full font-medium">
+            <MapPin className="h-3 w-3" />
             <span>Location active</span>
           </div>
           
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500">Radius:</span>
-            <div className="flex">
-              {radiusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleRadiusChange(option.value)}
-                  className={`px-2 py-1 text-xs border-y border-r first:border-l first:rounded-l-md last:rounded-r-md ${
-                    selectedRadius === option.value
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+            {radiusOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleRadiusChange(option.value)}
+                className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                  selectedRadius === option.value
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
           
           <button
             onClick={resetLocationPermission}
-            className="text-xs text-gray-500 hover:text-gray-700"
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Reset location"
           >
-            ✕
+            <X className="h-3.5 w-3.5" />
           </button>
         </>
       )}
