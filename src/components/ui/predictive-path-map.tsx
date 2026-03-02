@@ -146,6 +146,12 @@ export default function PredictivePathMap({
 
           leafletLoadedRef.current = true;
 
+          // Clean up any existing map on this container (handles remount scenarios)
+          const container = mapContainerRef.current as any;
+          if (container._leaflet_id) {
+            container._leaflet_id = null;
+          }
+
           const map = L.map(mapContainerRef.current).setView([initialLatitude, initialLongitude], 15);
 
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

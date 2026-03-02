@@ -250,46 +250,43 @@ export default function PathTestPage() {
   };
 
   const phaseColors: Record<string, string> = {
-    escape: 'bg-red-500/10 text-red-400 border-red-500/30',
-    seeking_shelter: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-    settling: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-    established: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+    escape: 'bg-red-50 text-red-700 border border-red-200',
+    seeking_shelter: 'bg-orange-50 text-orange-700 border border-orange-200',
+    settling: 'bg-amber-50 text-amber-700 border border-amber-200',
+    established: 'bg-blue-50 text-blue-700 border border-blue-200',
   };
 
   return (
-    <div className="flex h-screen bg-gray-950">
+    <div className="flex h-screen bg-[#f7f8fa]">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
             {/* Page Header */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <Bug className="w-6 h-6 text-purple-400" />
-              </div>
+            <div className="section-fade-up flex items-center justify-between mb-5">
               <div>
-                <h1 className="text-2xl font-bold text-white">Path Prediction Lab</h1>
-                <p className="text-sm text-gray-400">Experimental improved snake movement prediction model</p>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Path Prediction Lab</h1>
+                <p className="text-sm text-gray-400 mt-0.5">Experimental snake movement prediction model</p>
               </div>
-              <div className="ml-auto px-3 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30">
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
                 Experimental
-              </div>
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
               {/* Left: Map + Controls */}
               <div className="xl:col-span-2 space-y-4">
 
                 {/* Map */}
-                <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm section-fade-up" style={{ animationDelay: '100ms' }}>
                   <div className="relative">
                     <div ref={mapContainerRef} className="h-[500px] w-full" />
                     
                     {/* Legend */}
-                    <div className="absolute top-3 right-3 bg-gray-900/90 backdrop-blur rounded-lg p-3 text-xs z-[1000] border border-gray-700">
-                      <div className="font-semibold text-white mb-2">Legend</div>
-                      <div className="space-y-1.5 text-gray-300">
+                    <div className="absolute top-3 right-3 bg-white/95 backdrop-blur rounded-xl p-3 text-xs z-[1000] border border-gray-200 shadow-sm">
+                      <div className="font-semibold text-gray-900 mb-2">Legend</div>
+                      <div className="space-y-1.5 text-gray-600">
                         <div className="flex items-center gap-2">
                           <span className="text-sm">🐍</span> Detection Point
                         </div>
@@ -313,10 +310,10 @@ export default function PathTestPage() {
 
                     {/* Loading overlay */}
                     {loading && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-[1001]">
-                        <div className="bg-gray-900 rounded-xl p-6 flex flex-col items-center">
-                          <RefreshCw className="w-8 h-8 text-purple-400 animate-spin mb-3" />
-                          <p className="text-white text-sm">Computing prediction...</p>
+                      <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-[1001]">
+                        <div className="bg-white rounded-2xl p-6 flex flex-col items-center shadow-lg border border-gray-100">
+                          <RefreshCw className="w-8 h-8 text-purple-600 animate-spin mb-3" />
+                          <p className="text-gray-700 text-sm font-medium">Computing prediction...</p>
                         </div>
                       </div>
                     )}
@@ -324,7 +321,7 @@ export default function PathTestPage() {
                 </div>
 
                 {/* Controls */}
-                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm section-fade-up" style={{ animationDelay: '150ms' }}>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     {/* Species */}
                     <div className="relative">
@@ -332,7 +329,7 @@ export default function PathTestPage() {
                       <select
                         value={species}
                         onChange={(e) => setSpecies(e.target.value)}
-                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-3 py-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                       >
                         {SPECIES_LIST.map(s => (
                           <option key={s.value} value={s.value}>
@@ -354,9 +351,9 @@ export default function PathTestPage() {
                         max="480"
                         value={minutesAgo}
                         onChange={(e) => setMinutesAgo(parseInt(e.target.value))}
-                        className="w-full accent-purple-500 mt-2"
+                        className="w-full accent-purple-600 mt-2"
                       />
-                      <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
                         <span>1m</span><span>1h</span><span>4h</span><span>8h</span>
                       </div>
                     </div>
@@ -372,7 +369,7 @@ export default function PathTestPage() {
                             onChange={(e) => setVenomous(e.target.checked)}
                             className="rounded accent-red-500"
                           />
-                          <span className={`text-sm font-medium ${venomous ? 'text-red-400' : 'text-green-400'}`}>
+                          <span className={`text-sm font-medium ${venomous ? 'text-red-600' : 'text-emerald-600'}`}>
                             {venomous ? '☠️ Venomous' : '✅ Non-venomous'}
                           </span>
                         </label>
@@ -384,7 +381,7 @@ export default function PathTestPage() {
                       <button
                         onClick={runPrediction}
                         disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white rounded-lg transition-colors font-medium"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white rounded-xl transition-all duration-200 active:scale-95 font-medium text-sm shadow-sm shadow-purple-200"
                       >
                         {loading ? (
                           <><RefreshCw className="w-4 h-4 animate-spin" /> Computing...</>
@@ -398,41 +395,41 @@ export default function PathTestPage() {
                   {/* Advanced settings */}
                   <button
                     onClick={() => setShowAdvanced(!showAdvanced)}
-                    className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
                   >
                     <Settings className="w-3 h-3" />
                     {showAdvanced ? 'Hide' : 'Show'} advanced settings
                   </button>
 
                   {showAdvanced && (
-                    <div className="mt-3 pt-3 border-t border-gray-800 grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">Latitude</label>
+                        <label className="block text-xs text-gray-500 mb-1">Latitude</label>
                         <input
                           type="number"
                           step="0.0001"
                           value={latitude}
                           onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                          className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-1.5 text-sm"
+                          className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">Longitude</label>
+                        <label className="block text-xs text-gray-500 mb-1">Longitude</label>
                         <input
                           type="number"
                           step="0.0001"
                           value={longitude}
                           onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                          className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-1.5 text-sm"
+                          className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">Detection ID (seed)</label>
+                        <label className="block text-xs text-gray-500 mb-1">Detection ID (seed)</label>
                         <input
                           type="text"
                           value={detectionId}
                           onChange={(e) => setDetectionId(e.target.value)}
-                          className="w-full bg-gray-800 border border-gray-700 text-white rounded px-3 py-1.5 text-sm font-mono"
+                          className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                       </div>
                     </div>
@@ -441,9 +438,9 @@ export default function PathTestPage() {
 
                 {/* Error */}
                 {error && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
-                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                    <p className="text-sm text-red-300">{error}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{error}</p>
                   </div>
                 )}
               </div>
@@ -452,20 +449,20 @@ export default function PathTestPage() {
               <div className="space-y-4">
                 {/* Phase Status */}
                 {prediction && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm section-fade-up" style={{ animationDelay: '200ms' }}>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-white flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-purple-400" />
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+                        <Clock className="w-4 h-4 text-purple-600" />
                         Movement Phase
                       </h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${phaseColors[prediction.phase]}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${phaseColors[prediction.phase]}`}>
                         {phaseLabels[prediction.phase]}
                       </span>
                     </div>
-                    <div className="space-y-3 text-sm">
+                    <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Time Elapsed</span>
-                        <span className="text-white font-medium">
+                        <span className="text-gray-900 font-medium">
                           {prediction.timeElapsedHours < 1
                             ? `${Math.round(prediction.timeElapsedHours * 60)} minutes`
                             : `${prediction.timeElapsedHours.toFixed(1)} hours`}
@@ -473,11 +470,11 @@ export default function PathTestPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Max Distance</span>
-                        <span className="text-white font-medium">{prediction.maxDistance}m</span>
+                        <span className="text-gray-900 font-medium">{prediction.maxDistance}m</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Est. Speed</span>
-                        <span className="text-white font-medium">
+                        <span className="text-gray-900 font-medium">
                           {prediction.searchRecommendations.estimatedSpeed < 0.01
                             ? '< 0.01 km/h (settled)'
                             : `${prediction.searchRecommendations.estimatedSpeed.toFixed(3)} km/h`}
@@ -485,39 +482,39 @@ export default function PathTestPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Position Confidence</span>
-                        <span className="text-white font-medium">
+                        <span className="text-gray-900 font-medium">
                           {(prediction.currentPosition.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
-                      <div className="pt-3 border-t border-gray-800">
+                      <div className="pt-2.5 border-t border-gray-100">
                         <p className="text-xs text-gray-400 italic">{prediction.searchRecommendations.likelyBehavior}</p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Search Recommendations */}
+                {/* Search Zones */}
                 {prediction && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                    <h3 className="font-semibold text-white flex items-center gap-2 mb-4">
-                      <Target className="w-4 h-4 text-blue-400" />
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm section-fade-up" style={{ animationDelay: '250ms' }}>
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4 text-sm">
+                      <Target className="w-4 h-4 text-blue-600" />
                       Search Zones
                     </h3>
                     <div className="space-y-3">
                       {prediction.zones.map((zone, i) => (
-                        <div key={i} className="rounded-lg p-3" style={{ background: `${zone.color}15`, border: `1px solid ${zone.color}40` }}>
+                        <div key={i} className="rounded-xl p-3" style={{ background: `${zone.color}10`, border: `1px solid ${zone.color}30` }}>
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-sm font-semibold" style={{ color: zone.color }}>{zone.label}</span>
-                            <span className="text-xs text-gray-400">{zone.radius}m radius</span>
+                            <span className="text-xs text-gray-500">{zone.radius}m radius</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-800 rounded-full h-2">
+                            <div className="flex-1 bg-gray-100 rounded-full h-2">
                               <div
                                 className="h-2 rounded-full transition-all duration-500"
                                 style={{ width: `${zone.probability * 100}%`, backgroundColor: zone.color }}
                               />
                             </div>
-                            <span className="text-xs font-bold text-white">{(zone.probability * 100).toFixed(0)}%</span>
+                            <span className="text-xs font-bold text-gray-700">{(zone.probability * 100).toFixed(0)}%</span>
                           </div>
                         </div>
                       ))}
@@ -527,24 +524,24 @@ export default function PathTestPage() {
 
                 {/* Path Details */}
                 {prediction && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                    <h3 className="font-semibold text-white flex items-center gap-2 mb-4">
-                      <Navigation className="w-4 h-4 text-purple-400" />
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm section-fade-up" style={{ animationDelay: '300ms' }}>
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4 text-sm">
+                      <Navigation className="w-4 h-4 text-purple-600" />
                       Predicted Paths ({prediction.paths.length})
                     </h3>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {prediction.paths
                         .sort((a, b) => b.confidence - a.confidence)
                         .map((path, i) => (
-                          <div key={i} className="flex items-center justify-between px-3 py-2 bg-gray-800/50 rounded-lg text-sm">
+                          <div key={i} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-xl text-sm">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full" style={{ background: ['#8b5cf6','#6366f1','#a78bfa','#7c3aed','#c084fc','#818cf8'][i] }} />
-                              <span className="text-gray-300">Path {i + 1}</span>
+                              <span className="text-gray-700">Path {i + 1}</span>
                             </div>
-                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <div className="flex items-center gap-4 text-xs text-gray-400">
                               <span>{path.direction}°</span>
                               <span>{path.distance}m</span>
-                              <span className="font-bold text-white">{(path.confidence * 100).toFixed(0)}%</span>
+                              <span className="font-bold text-gray-900">{(path.confidence * 100).toFixed(0)}%</span>
                             </div>
                           </div>
                         ))}
@@ -553,12 +550,12 @@ export default function PathTestPage() {
                 )}
 
                 {/* Quick presets */}
-                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                  <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
-                    <Zap className="w-4 h-4 text-yellow-400" />
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm section-fade-up" style={{ animationDelay: '350ms' }}>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-3 text-sm">
+                    <Zap className="w-4 h-4 text-amber-500" />
                     Quick Scenarios
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {[
                       { label: 'Just spotted (2 min)', mins: 2, sp: 'cobra' },
                       { label: 'Reported 15 min ago', mins: 15, sp: 'russell' },
@@ -575,7 +572,7 @@ export default function PathTestPage() {
                           if (sp) setVenomous(sp.venomous);
                           setDetectionId('test-preset-' + i + '-' + Date.now().toString(36));
                         }}
-                        className="w-full text-left px-3 py-2 bg-gray-800/50 hover:bg-gray-800 rounded-lg text-sm text-gray-300 hover:text-white transition-colors"
+                        className="w-full text-left px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm text-gray-600 hover:text-gray-900 transition-colors"
                       >
                         {preset.label}
                       </button>
@@ -585,11 +582,11 @@ export default function PathTestPage() {
 
                 {/* Info */}
                 {!prediction && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm section-fade-up" style={{ animationDelay: '400ms' }}>
                     <div className="flex items-start gap-3">
-                      <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                      <div className="text-xs text-gray-400 space-y-2">
-                        <p className="font-medium text-gray-300">Improvements in this model</p>
+                      <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-gray-500 space-y-2">
+                        <p className="font-medium text-gray-700">Improvements in this model</p>
                         <ul className="space-y-1 list-disc list-inside">
                           <li>Species-specific burst/cruise speeds</li>
                           <li>Time-of-day awareness (nocturnal species)</li>

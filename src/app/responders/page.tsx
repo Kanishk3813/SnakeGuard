@@ -22,9 +22,9 @@ import {
   Loader2,
   RefreshCw,
   Map,
-  Phone,
-  Mail,
-  Bell
+  Bell,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export default function RespondersPage() {
@@ -39,6 +39,19 @@ export default function RespondersPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
+  const [expandedMaps, setExpandedMaps] = useState<Set<string>>(new Set());
+
+  const toggleMap = (id: string) => {
+    setExpandedMaps(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     checkUser();
@@ -48,7 +61,7 @@ export default function RespondersPage() {
     if (user) {
       loadData();
     }
-  }, [user, selectedTab]);
+  }, [user]);
 
   // Set up real-time subscriptions for assignment requests and new detections
   useEffect(() => {
@@ -454,28 +467,35 @@ export default function RespondersPage() {
     return `${minutes}m remaining`;
   };
 
-  const statusColors = {
-    assigned: 'bg-blue-100 text-blue-800',
-    in_progress: 'bg-yellow-100 text-yellow-800',
-    completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-gray-100 text-gray-800'
+  const statusColors: Record<string, string> = {
+    assigned: 'bg-blue-50 text-blue-700 border border-blue-200',
+    in_progress: 'bg-amber-50 text-amber-700 border border-amber-200',
+    completed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    cancelled: 'bg-gray-100 text-gray-600 border border-gray-200'
   };
 
-  const statusIcons = {
+  const statusIcons: Record<string, any> = {
     assigned: Target,
     in_progress: Navigation,
     completed: CheckCircle,
     cancelled: XCircle
   };
 
+  const riskStyles: Record<string, string> = {
+    critical: 'text-red-700 bg-red-50',
+    high: 'text-orange-700 bg-orange-50',
+    medium: 'text-amber-700 bg-amber-50',
+    low: 'text-emerald-700 bg-emerald-50',
+  };
+
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[#f7f8fa]">
         <Sidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header />
           <div className="flex flex-1 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
           </div>
         </div>
       </div>
@@ -483,127 +503,141 @@ export default function RespondersPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#f7f8fa]">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Responder Dashboard</h1>
-              <p className="text-gray-600">
-                Manage your assigned detections and respond to automatic assignment requests
-              </p>
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
+            {/* Page Header */}
+            <div className="section-fade-up flex flex-col md:flex-row md:items-center md:justify-between mb-5">
+              <div className="mb-3 md:mb-0">
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Responders</h1>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  Manage assignments and respond to snake detection alerts
+                </p>
+              </div>
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
             </div>
 
-            {/* Location Picker */}
-            <div className="mb-6">
+            {/* Location Picker (compact) */}
+            <div className="mb-5 section-fade-up" style={{ animationDelay: '100ms' }}>
               <ResponderLocationPicker onLocationSaved={() => loadData()} />
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-1 mb-6 border-b border-gray-200">
-              <button
-                onClick={() => setSelectedTab('requests')}
-                className={`px-6 py-3 font-medium text-sm transition-colors relative ${
-                  selectedTab === 'requests'
-                    ? 'border-b-2 border-green-600 text-green-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Bell className="h-4 w-4 inline mr-1" />
-                Assignment Requests
-                {pendingRequests.length > 0 && (
-                  <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                    {pendingRequests.length}
+            <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden mb-5 section-fade-up" style={{ animationDelay: '150ms' }}>
+              {[
+                { key: 'requests', label: 'Requests', count: pendingRequests.length, icon: Bell, highlight: pendingRequests.length > 0 },
+                { key: 'assigned', label: 'My Assignments', count: assignments.length },
+                { key: 'available', label: 'Available', count: unassignedDetections.length },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSelectedTab(tab.key as any)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                    selectedTab === tab.key
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.icon && <tab.icon className="h-3.5 w-3.5" />}
+                  {tab.label}
+                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${
+                    selectedTab === tab.key
+                      ? 'bg-white/20 text-white'
+                      : tab.highlight
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {tab.count}
                   </span>
-                )}
-              </button>
-              <button
-                onClick={() => setSelectedTab('assigned')}
-                className={`px-6 py-3 font-medium text-sm transition-colors ${
-                  selectedTab === 'assigned'
-                    ? 'border-b-2 border-green-600 text-green-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                My Assignments ({assignments.length})
-              </button>
-              <button
-                onClick={() => setSelectedTab('available')}
-                className={`px-6 py-3 font-medium text-sm transition-colors ${
-                  selectedTab === 'available'
-                    ? 'border-b-2 border-green-600 text-green-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Available Detections ({unassignedDetections.length})
-              </button>
+                </button>
+              ))}
             </div>
 
-            {/* Pending Assignment Requests */}
+            {/* ─── Assignment Requests Tab ─── */}
             {selectedTab === 'requests' && (
-              <div className="space-y-4">
+              <div className="space-y-3 section-fade-up" style={{ animationDelay: '200ms' }}>
                 {pendingRequests.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Pending Requests</h3>
-                    <p className="text-gray-500">
-                      You'll receive automatic assignment requests when snakes are detected near your location.
+                  <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center shadow-sm">
+                    <Bell className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">No Pending Requests</h3>
+                    <p className="text-sm text-gray-400">
+                      You&apos;ll receive automatic requests when snakes are detected near your location.
                     </p>
                   </div>
                 ) : (
-                  pendingRequests.map((request: any) => {
+                  pendingRequests.map((request: any, index: number) => {
                     const detection = request.detection as SnakeDetection;
                     if (!detection) return null;
 
                     const timeRemaining = getTimeRemaining(request.expires_at);
-                    const isExpiringSoon = new Date(request.expires_at).getTime() - Date.now() < 30 * 60 * 1000; // Less than 30 min
+                    const isExpiringSoon = new Date(request.expires_at).getTime() - Date.now() < 30 * 60 * 1000;
 
                     return (
                       <div
                         key={request.id}
-                        className="bg-white rounded-lg shadow-md border-2 border-blue-200 overflow-hidden"
+                        className="bg-white rounded-2xl border border-blue-100 overflow-hidden shadow-sm section-fade-up"
+                        style={{ animationDelay: `${200 + index * 60}ms` }}
                       >
-                        <div className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-xl font-semibold text-gray-900">
+                        <div className="p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="text-base font-semibold text-gray-900 truncate">
                                   {detection.species || 'Unknown Species'}
                                 </h3>
-                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                  <Bell className="h-3 w-3 inline mr-1" />
+                                <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
                                   NEW REQUEST
                                 </span>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="h-4 w-4 text-green-600" />
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5 text-emerald-500" />
                                   {request.distance_km.toFixed(1)} km away
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-4 w-4" />
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
                                   {timeRemaining}
-                                </div>
+                                </span>
                                 {detection.risk_level && (
-                                  <div className="flex items-center gap-1">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    {detection.risk_level.toUpperCase()} Risk
-                                  </div>
+                                  <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium ${riskStyles[detection.risk_level] || ''}`}>
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {detection.risk_level.toUpperCase()}
+                                  </span>
                                 )}
+                                <span className="text-gray-400">
+                                  Confidence: {(detection.confidence * 100).toFixed(0)}%
+                                </span>
                               </div>
                               {isExpiringSoon && (
-                                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                                  ⚠️ Request expires soon! Please respond quickly.
-                                </div>
+                                <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 px-2 py-1 rounded-lg inline-block">
+                                  ⚠️ Expires soon — respond quickly
+                                </p>
                               )}
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                onClick={() => handleRequestAction(request.id, 'reject')}
+                                disabled={processingRequest === request.id}
+                                className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 disabled:opacity-50"
+                              >
+                                {processingRequest === request.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : 'Decline'}
+                              </button>
                               <button
                                 onClick={() => handleRequestAction(request.id, 'accept')}
                                 disabled={processingRequest === request.id}
-                                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 font-medium flex items-center gap-2"
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all duration-200 active:scale-95 shadow-sm shadow-emerald-200 disabled:opacity-50"
                               >
                                 {processingRequest === request.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -614,60 +648,7 @@ export default function RespondersPage() {
                                   </>
                                 )}
                               </button>
-                              <button
-                                onClick={() => handleRequestAction(request.id, 'reject')}
-                                disabled={processingRequest === request.id}
-                                className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 font-medium flex items-center gap-2"
-                              >
-                                {processingRequest === request.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <XCircle className="h-4 w-4" />
-                                    Reject
-                                  </>
-                                )}
-                              </button>
                             </div>
-                          </div>
-
-                          {/* Detection Info */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-4 pt-4 border-t border-gray-200">
-                            <div>
-                              <div className="text-gray-500 mb-1">Detected</div>
-                              <div className="font-medium">{formatDate(detection.timestamp)}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-500 mb-1">Confidence</div>
-                              <div className="font-medium">{(detection.confidence * 100).toFixed(0)}%</div>
-                            </div>
-                            {detection.venomous !== null && (
-                              <div>
-                                <div className="text-gray-500 mb-1">Type</div>
-                                <div className="font-medium">
-                                  {detection.venomous ? 'Venomous' : 'Non-venomous'}
-                                </div>
-                              </div>
-                            )}
-                            {detection.latitude && detection.longitude && (
-                              <div>
-                                <div className="text-gray-500 mb-1">Location</div>
-                                <div className="font-medium font-mono text-xs">
-                                  {detection.latitude.toFixed(4)}, {detection.longitude.toFixed(4)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* View Details Button */}
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <button
-                              onClick={() => setSelectedDetection(detection)}
-                              className="text-sm text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
-                            >
-                              <Map className="h-4 w-4" />
-                              View Full Details & Prediction
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -677,23 +658,23 @@ export default function RespondersPage() {
               </div>
             )}
 
-            {/* Assigned Detections */}
+            {/* ─── My Assignments Tab ─── */}
             {selectedTab === 'assigned' && (
-              <div className="space-y-4">
+              <div className="space-y-3 section-fade-up" style={{ animationDelay: '200ms' }}>
                 {assignments.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Assignments</h3>
-                    <p className="text-gray-500 mb-4">You don't have any assigned detections yet.</p>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center shadow-sm">
+                    <Target className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">No Assignments</h3>
+                    <p className="text-sm text-gray-400 mb-4">You don&apos;t have any assigned detections yet.</p>
                     <button
                       onClick={() => setSelectedTab('available')}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                      className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all duration-200 active:scale-95"
                     >
                       View Available Detections
                     </button>
                   </div>
                 ) : (
-                  assignments.map((assignment) => {
+                  assignments.map((assignment, index) => {
                     const detection = assignment.detection as SnakeDetection;
                     if (!detection) return null;
 
@@ -702,130 +683,147 @@ export default function RespondersPage() {
                     return (
                       <div
                         key={assignment.id}
-                        className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+                        className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm section-fade-up"
+                        style={{ animationDelay: `${200 + index * 60}ms` }}
                       >
-                        <div className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-xl font-semibold text-gray-900">
+                        <div className="p-5">
+                          {/* Header row */}
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <h3 className="text-base font-semibold text-gray-900 truncate">
                                   {detection.species || 'Unknown Species'}
                                 </h3>
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[assignment.status]}`}>
-                                  <StatusIcon className="h-3 w-3 inline mr-1" />
+                                <span className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColors[assignment.status]}`}>
+                                  <StatusIcon className="h-3 w-3" />
                                   {assignment.status.replace('_', ' ').toUpperCase()}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-4 w-4" />
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
                                   Detected {formatDate(detection.timestamp)}
-                                </div>
+                                </span>
                                 {assignment.assigned_at && (
-                                  <div className="flex items-center gap-1">
-                                    <User className="h-4 w-4" />
+                                  <span className="flex items-center gap-1">
+                                    <User className="h-3.5 w-3.5" />
                                     Assigned {formatDate(assignment.assigned_at)}
-                                  </div>
+                                  </span>
                                 )}
                                 {detection.risk_level && (
-                                  <div className="flex items-center gap-1">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    {detection.risk_level.toUpperCase()} Risk
-                                  </div>
+                                  <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium ${riskStyles[detection.risk_level] || ''}`}>
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {detection.risk_level.toUpperCase()}
+                                  </span>
                                 )}
                               </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               {assignment.status === 'assigned' && (
                                 <>
                                   <button
-                                    onClick={() => handleUpdateStatus(assignment.id, 'in_progress')}
-                                    disabled={updating === assignment.id}
-                                    className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:bg-gray-400 text-sm font-medium"
-                                  >
-                                    {updating === assignment.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      'Mark In Progress'
-                                    )}
-                                  </button>
-                                  <button
                                     onClick={() => handleUnassign(assignment.id)}
                                     disabled={updating === assignment.id}
-                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:bg-gray-400 text-sm font-medium"
+                                    className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 disabled:opacity-50"
                                   >
                                     Unassign
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateStatus(assignment.id, 'in_progress')}
+                                    disabled={updating === assignment.id}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all duration-200 active:scale-95 disabled:opacity-50"
+                                  >
+                                    {updating === assignment.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : 'Mark In Progress'}
                                   </button>
                                 </>
                               )}
                               {assignment.status === 'in_progress' && (
                                 <>
                                   <button
-                                    onClick={() => handleUpdateStatus(assignment.id, 'completed')}
-                                    disabled={updating === assignment.id}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 text-sm font-medium"
-                                  >
-                                    {updating === assignment.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      'Mark Completed'
-                                    )}
-                                  </button>
-                                  <button
                                     onClick={() => handleUpdateStatus(assignment.id, 'cancelled')}
                                     disabled={updating === assignment.id}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 text-sm font-medium"
+                                    className="px-3 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all duration-200 disabled:opacity-50"
                                   >
                                     Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateStatus(assignment.id, 'completed')}
+                                    disabled={updating === assignment.id}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all duration-200 active:scale-95 shadow-sm shadow-emerald-200 disabled:opacity-50"
+                                  >
+                                    {updating === assignment.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                        Mark Completed
+                                      </>
+                                    )}
                                   </button>
                                 </>
                               )}
                             </div>
                           </div>
 
-                          {/* Predictive Path Map */}
-                          {detection.latitude && detection.longitude && detection.status !== 'captured' && (
-                            <div className="mt-4 border-t border-gray-200 pt-4">
-                              <PredictivePathMap
-                                detectionId={detection.id}
-                                initialLatitude={detection.latitude}
-                                initialLongitude={detection.longitude}
-                                detectionTimestamp={detection.timestamp}
-                                species={detection.species}
-                                status={detection.status}
-                              />
-                            </div>
-                          )}
-
-                          {/* Detection Details */}
-                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <div className="text-gray-500 mb-1">Confidence</div>
-                              <div className="font-medium">{(detection.confidence * 100).toFixed(0)}%</div>
-                            </div>
+                          {/* Info chips */}
+                          <div className="flex flex-wrap gap-2 text-xs mb-3">
+                            <span className="px-2.5 py-1 bg-gray-50 rounded-lg text-gray-600">
+                              Confidence: <strong>{(detection.confidence * 100).toFixed(0)}%</strong>
+                            </span>
                             {detection.venomous !== null && (
-                              <div>
-                                <div className="text-gray-500 mb-1">Type</div>
-                                <div className="font-medium">
-                                  {detection.venomous ? 'Venomous' : 'Non-venomous'}
-                                </div>
-                              </div>
+                              <span className={`px-2.5 py-1 rounded-lg ${detection.venomous ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                {detection.venomous ? 'Venomous' : 'Non-venomous'}
+                              </span>
                             )}
                             {detection.latitude && detection.longitude && (
-                              <div>
-                                <div className="text-gray-500 mb-1">Location</div>
-                                <div className="font-medium font-mono text-xs">
-                                  {detection.latitude.toFixed(4)}, {detection.longitude.toFixed(4)}
-                                </div>
-                              </div>
+                              <span className="px-2.5 py-1 bg-gray-50 rounded-lg text-gray-500 font-mono">
+                                {detection.latitude.toFixed(4)}, {detection.longitude.toFixed(4)}
+                              </span>
                             )}
                             {assignment.arrived_at && (
-                              <div>
-                                <div className="text-gray-500 mb-1">Arrived At</div>
-                                <div className="font-medium">{formatDate(assignment.arrived_at)}</div>
-                              </div>
+                              <span className="px-2.5 py-1 bg-blue-50 rounded-lg text-blue-700">
+                                Arrived {formatDate(assignment.arrived_at)}
+                              </span>
                             )}
                           </div>
+
+                          {/* Predictive Path Map (Collapsible) */}
+                          {detection.latitude && detection.longitude && detection.status !== 'captured' && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <button
+                                onClick={() => toggleMap(assignment.id)}
+                                className="w-full flex items-center justify-between py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors group"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Map className="h-4 w-4 text-emerald-600" />
+                                  <span>Predictive Movement Tracking</span>
+                                </div>
+                                {expandedMaps.has(assignment.id) ? (
+                                  <ChevronUp className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                                )}
+                              </button>
+                              <div
+                                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                  expandedMaps.has(assignment.id) ? 'max-h-[800px] opacity-100 mt-2' : 'max-h-0 opacity-0'
+                                }`}
+                              >
+                                {expandedMaps.has(assignment.id) && (
+                                  <PredictivePathMap
+                                    detectionId={detection.id}
+                                    initialLatitude={detection.latitude}
+                                    initialLongitude={detection.longitude}
+                                    detectionTimestamp={detection.timestamp}
+                                    species={detection.species}
+                                    status={detection.status}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -834,48 +832,51 @@ export default function RespondersPage() {
               </div>
             )}
 
-            {/* Available Detections */}
+            {/* ─── Available Detections Tab ─── */}
             {selectedTab === 'available' && (
-              <div className="space-y-4">
+              <div className="space-y-3 section-fade-up" style={{ animationDelay: '200ms' }}>
                 {unassignedDetections.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">All Clear!</h3>
-                    <p className="text-gray-500">All detections have been assigned to responders.</p>
+                  <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center shadow-sm">
+                    <CheckCircle className="h-10 w-10 text-emerald-300 mx-auto mb-3" />
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">All Clear!</h3>
+                    <p className="text-sm text-gray-400">All detections have been assigned to responders.</p>
                   </div>
                 ) : (
-                  unassignedDetections.map((detection) => (
+                  unassignedDetections.map((detection, index) => (
                     <div
                       key={detection.id}
-                      className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+                      className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm section-fade-up"
+                      style={{ animationDelay: `${200 + index * 60}ms` }}
                     >
-                      <div className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-semibold text-gray-900 truncate mb-1.5">
                               {detection.species || 'Unknown Species'}
                             </h3>
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
                                 {formatDate(detection.timestamp)}
-                              </div>
+                              </span>
                               {detection.risk_level && (
-                                <div className="flex items-center gap-1">
-                                  <AlertTriangle className="h-4 w-4" />
-                                  {detection.risk_level.toUpperCase()} Risk
-                                </div>
+                                <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium ${riskStyles[detection.risk_level] || ''}`}>
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {detection.risk_level.toUpperCase()}
+                                </span>
                               )}
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4" />
-                                {detection.latitude?.toFixed(4)}, {detection.longitude?.toFixed(4)}
-                              </div>
+                              {detection.latitude && detection.longitude && (
+                                <span className="flex items-center gap-1 text-gray-400 font-mono">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  {detection.latitude.toFixed(4)}, {detection.longitude.toFixed(4)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <button
                             onClick={() => handleClaimDetection(detection.id)}
                             disabled={claiming === detection.id}
-                            className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 font-medium flex items-center gap-2"
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all duration-200 active:scale-95 shadow-sm shadow-emerald-200 disabled:opacity-50 flex-shrink-0"
                           >
                             {claiming === detection.id ? (
                               <>
@@ -885,46 +886,40 @@ export default function RespondersPage() {
                             ) : (
                               <>
                                 <Target className="h-4 w-4" />
-                                Claim Detection
+                                Claim
                               </>
                             )}
                           </button>
                         </div>
 
-                        {/* Quick Info */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <div className="text-gray-500 mb-1">Confidence</div>
-                            <div className="font-medium">{(detection.confidence * 100).toFixed(0)}%</div>
-                          </div>
+                        {/* Info chips */}
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="px-2.5 py-1 bg-gray-50 rounded-lg text-gray-600">
+                            Confidence: <strong>{(detection.confidence * 100).toFixed(0)}%</strong>
+                          </span>
                           {detection.venomous !== null && (
-                            <div>
-                              <div className="text-gray-500 mb-1">Type</div>
-                              <div className="font-medium">
-                                {detection.venomous ? 'Venomous' : 'Non-venomous'}
-                              </div>
-                            </div>
+                            <span className={`px-2.5 py-1 rounded-lg ${detection.venomous ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                              {detection.venomous ? 'Venomous' : 'Non-venomous'}
+                            </span>
                           )}
+                          <span className="px-2.5 py-1 bg-gray-50 rounded-lg text-gray-500 capitalize">
+                            {detection.status || 'Pending'}
+                          </span>
                           {detection.classified_at && (
-                            <div>
-                              <div className="text-gray-500 mb-1">Classified</div>
-                              <div className="font-medium">{formatDate(detection.classified_at)}</div>
-                            </div>
+                            <span className="px-2.5 py-1 bg-gray-50 rounded-lg text-gray-500">
+                              Classified {formatDate(detection.classified_at)}
+                            </span>
                           )}
-                          <div>
-                            <div className="text-gray-500 mb-1">Status</div>
-                            <div className="font-medium capitalize">{detection.status || 'Pending'}</div>
-                          </div>
                         </div>
 
-                        {/* View Details Button */}
-                        <div className="mt-4 pt-4 border-t border-gray-200">
+                        {/* View Details */}
+                        <div className="mt-3 pt-3 border-t border-gray-100">
                           <button
                             onClick={() => setSelectedDetection(detection)}
-                            className="text-sm text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 transition-colors"
                           >
-                            <Map className="h-4 w-4" />
-                            View Full Details & Prediction
+                            <Map className="h-3.5 w-3.5" />
+                            View Details & Prediction
                           </button>
                         </div>
                       </div>
@@ -933,18 +928,6 @@ export default function RespondersPage() {
                 )}
               </div>
             )}
-
-            {/* Refresh Button */}
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={loadData}
-                disabled={loading}
-                className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:bg-gray-50"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-            </div>
           </div>
         </main>
       </div>
@@ -952,22 +935,22 @@ export default function RespondersPage() {
       {/* Detection Details Modal */}
       {selectedDetection && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm"
           onClick={() => setSelectedDetection(null)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden border border-gray-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-gray-900">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">
                 {selectedDetection.species || 'Unknown Species'}
               </h3>
               <button
                 onClick={() => setSelectedDetection(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 transition-colors"
+                className="text-gray-400 hover:text-gray-600 p-1 transition-colors rounded-lg hover:bg-gray-100"
               >
-                <XCircle className="h-6 w-6" />
+                <XCircle className="h-5 w-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
@@ -982,28 +965,28 @@ export default function RespondersPage() {
                   status={selectedDetection.status}
                 />
               ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                  <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                  <p className="text-yellow-800 font-medium">No location data available for this detection</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+                  <AlertCircle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                  <p className="text-amber-800 text-sm font-medium">No location data available for this detection</p>
                 </div>
               )}
             </div>
-            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                onClick={() => setSelectedDetection(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200"
+              >
+                Close
+              </button>
               <button
                 onClick={() => {
                   handleClaimDetection(selectedDetection.id);
                   setSelectedDetection(null);
                 }}
                 disabled={claiming === selectedDetection.id}
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 font-medium"
+                className="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all duration-200 active:scale-95 shadow-sm shadow-emerald-200 disabled:opacity-50"
               >
-                {claiming === selectedDetection.id ? 'Claiming...' : 'Claim This Detection'}
-              </button>
-              <button
-                onClick={() => setSelectedDetection(null)}
-                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-              >
-                Close
+                {claiming === selectedDetection.id ? 'Claiming...' : 'Claim Detection'}
               </button>
             </div>
           </div>
@@ -1012,4 +995,3 @@ export default function RespondersPage() {
     </div>
   );
 }
-

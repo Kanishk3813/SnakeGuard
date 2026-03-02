@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPin, Loader2, CheckCircle, X } from 'lucide-react';
+import { MapPin, Loader2, CheckCircle, Navigation } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface ResponderLocationPickerProps {
@@ -11,7 +11,6 @@ interface ResponderLocationPickerProps {
 export default function ResponderLocationPicker({ onLocationSaved }: ResponderLocationPickerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasPermission, setHasPermission] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [savedLocation, setSavedLocation] = useState<{ lat: number; lng: number; updated_at: string } | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -52,26 +51,25 @@ export default function ResponderLocationPicker({ onLocationSaved }: ResponderLo
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLoading(false);
-        setHasPermission(true);
-        
+
         const location = {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
-        
+
         setCurrentLocation(location);
       },
       (error) => {
         setIsLoading(false);
         console.error('Error getting location:', error);
-        
+
         let message = 'Unable to access your location.';
         if (error.code === 1) {
           message = 'Location permission denied. Please enable location access.';
         } else if (error.code === 2) {
           message = 'Your location is currently unavailable.';
         }
-        
+
         alert(message);
       },
       {
@@ -113,6 +111,7 @@ export default function ResponderLocationPicker({ onLocationSaved }: ResponderLo
 
       if (data.success) {
         setSavedLocation(data.location);
+        setCurrentLocation(null);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
         onLocationSaved?.(data.location);
@@ -127,109 +126,116 @@ export default function ResponderLocationPicker({ onLocationSaved }: ResponderLo
     }
   };
 
-  return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-green-600" />
-            Responder Location
-          </h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Set your location to receive automatic assignment requests for nearby snake detections
-          </p>
-        </div>
-        {showSuccess && (
-          <div className="flex items-center gap-2 text-green-600 text-sm">
-            <CheckCircle className="h-5 w-5" />
-            <span>Location saved!</span>
+  // Compact inline bar when location is already saved
+  if (savedLocation && savedLocation.lat && savedLocation.lng && !currentLocation) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+            <MapPin className="h-4 w-4 text-emerald-600" />
           </div>
-        )}
-      </div>
-
-      {savedLocation && savedLocation.lat && savedLocation.lng && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-green-900">Location Saved</p>
-              <p className="text-xs text-green-700 mt-1">
-                {savedLocation.lat.toFixed(6)}, {savedLocation.lng.toFixed(6)}
-              </p>
-              {savedLocation.updated_at && (
-                <p className="text-xs text-green-600 mt-1">
-                  Updated {new Date(savedLocation.updated_at).toLocaleString()}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => setSavedLocation(null)}
-              className="text-green-600 hover:text-green-800"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {!currentLocation ? (
-          <button
-            onClick={requestLocationPermission}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors font-medium"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                Getting location...
-              </>
-            ) : (
-              <>
-                <MapPin className="h-5 w-5 mr-2" />
-                Get My Current Location
-              </>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Your Location</span>
+            <span className="text-xs text-gray-400 font-mono">
+              {savedLocation.lat.toFixed(4)}, {savedLocation.lng.toFixed(4)}
+            </span>
+            {savedLocation.updated_at && (
+              <span className="text-xs text-gray-400 hidden md:inline">
+                · Updated {new Date(savedLocation.updated_at).toLocaleDateString()}
+              </span>
             )}
-          </button>
-        ) : (
-          <div className="space-y-3">
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm font-medium text-blue-900 mb-1">Current Location</p>
-              <p className="text-xs text-blue-700 font-mono">
-                {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={saveLocation}
-                disabled={isSaving}
-                className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors font-medium"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Save Location
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentLocation(null);
-                  setHasPermission(false);
-                }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
-        )}
+          {showSuccess && (
+            <div className="flex items-center gap-1 text-emerald-600">
+              <CheckCircle className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">Saved</span>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={requestLocationPermission}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all duration-200"
+        >
+          {isLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Navigation className="h-3.5 w-3.5" />
+          )}
+          Update
+        </button>
       </div>
+    );
+  }
+
+  // Compact state when user has fetched location but not saved yet
+  if (currentLocation) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <Navigation className="h-4 w-4 text-blue-600" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">New Location</span>
+            <span className="text-xs text-blue-600 font-mono">
+              {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentLocation(null)}
+            className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={saveLocation}
+            disabled={isSaving}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all duration-200 disabled:bg-gray-300"
+          >
+            {isSaving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CheckCircle className="h-3.5 w-3.5" />
+            )}
+            Save Location
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No location set yet — still compact but with a CTA
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+          <MapPin className="h-4 w-4 text-gray-400" />
+        </div>
+        <div>
+          <span className="text-sm font-medium text-gray-700">Set your location</span>
+          <span className="text-xs text-gray-400 ml-2 hidden md:inline">to receive nearby assignment requests</span>
+        </div>
+      </div>
+      <button
+        onClick={requestLocationPermission}
+        disabled={isLoading}
+        className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all duration-200 disabled:bg-gray-300"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Locating...
+          </>
+        ) : (
+          <>
+            <Navigation className="h-3.5 w-3.5" />
+            Get Location
+          </>
+        )}
+      </button>
     </div>
   );
 }
-
