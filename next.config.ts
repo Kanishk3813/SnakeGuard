@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'snakeguard.jiobase.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'upload.wikimedia.org',
       },
       {
