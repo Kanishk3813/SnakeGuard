@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
       smsSent: 0,
       globalEmailsSent: 0,
       globalSmsSent: 0,
+      pushSent: 0,
       webhookTriggered: false,
       errors: [] as string[],
       playbookUsed: playbookMatch?.id ?? null,
@@ -280,6 +281,55 @@ export async function POST(request: NextRequest) {
         } catch (error: any) {
           results.errors.push(`SMS error for ${user.phone_number}: ${error.message}`);
           await logNotification(user.user_id, detectionId, 'sms', 'failed', error.message);
+        }
+      }
+
+      // Send Expo push notification (mobile app)
+      if (user.push_notifications) {
+        try {
+          const pushResult = await sendExpoPushNotification(
+            user.user_id,
+            detection,
+            user.distance_km,
+            playbookMatch
+          );
+          if (pushResult.success) {
+            results.pushSent++;
+            await logNotification(user.user_id, detectionId, 'push', 'sent');
+          } else if (pushResult.error && pushResult.error !== 'No push token') {
+            results.errors.push(`Push failed for user ${user.user_id}: ${pushResult.error}`);
+            await logNotification(user.user_id, detectionId, 'push', 'failed', pushResult.error);
+          }
+        } catch (error: any) {
+          results.errors.push(`Push error for user ${user.user_id}: ${error.message}`);
+          await logNotification(user.user_id, detectionId, 'push', 'failed', error.message);
+        }
+      }
+    }
+
+    // ── Always notify the camera owner via push (even if not in geo-radius) ──
+    if (detection.device_id && supabaseAdmin) {
+      const { data: camera } = await supabaseAdmin
+        .from('cameras')
+        .select('user_id')
+        .eq('device_id', detection.device_id)
+        .maybeSingle();
+
+      if (camera?.user_id) {
+        const alreadyNotified = usersToNotify.some(u => u.user_id === camera.user_id);
+        if (!alreadyNotified) {
+          try {
+            const ownerPush = await sendExpoPushNotification(
+              camera.user_id,
+              detection,
+              undefined,
+              playbookMatch
+            );
+            if (ownerPush.success) {
+              results.pushSent++;
+              await logNotification(camera.user_id, detectionId, 'push', 'sent');
+            }
+          } catch (_) { /* best effort */ }
         }
       }
     }
@@ -688,4 +738,65 @@ async function ensureAssignmentExists(
     .single();
 
   return data;
+}
+
+// ── Expo Push Notifications (Mobile App) ──────────────────────────────
+
+async function sendExpoPushNotification(
+  userId: string,
+  detection: any,
+  distanceKm?: number,
+  playbook?: IncidentPlaybook | null
+): Promise<{ success: boolean; error?: string }> {
+  if (!supabaseAdmin) return { success: false, error: 'Supabase not configured' };
+
+  // Get the user's Expo push token from user_profiles
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('expo_push_token')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const pushToken = profile?.expo_push_token;
+  if (!pushToken) return { success: false, error: 'No push token' };
+
+  const riskLevel = detection.risk_level || 'unknown';
+  const species = detection.species || 'Unknown species';
+  const confidence = ((detection.confidence || 0) * 100).toFixed(0);
+  const distStr = typeof distanceKm === 'number' ? ` (${distanceKm.toFixed(1)} km away)` : '';
+
+  const message = {
+    to: pushToken,
+    sound: 'default',
+    title: `🐍 Snake Detected! ${riskLevel.toUpperCase()} risk`,
+    body: `${species} detected with ${confidence}% confidence${distStr}`,
+    data: { detectionId: detection.id, riskLevel, type: 'snake_detection' },
+    channelId: 'snake-alerts',
+    priority: 'high' as const,
+  };
+
+  try {
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+
+    if (result.data?.status === 'ok') {
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: result.data?.message || result.errors?.[0]?.message || 'Push send failed',
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }

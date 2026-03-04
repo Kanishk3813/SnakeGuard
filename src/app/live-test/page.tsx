@@ -19,6 +19,10 @@ import {
   RefreshCw,
   Settings,
   Info,
+  Smartphone,
+  Link,
+  Unlink,
+  Bell,
 } from 'lucide-react';
 
 const DETECTOR_URL = 'http://localhost:5050';
@@ -51,6 +55,16 @@ interface DetectorStatus {
   confidence_threshold: number;
   model_loaded: boolean;
   uptime_seconds: number;
+  auto_upload?: boolean;
+  device_id?: string;
+  supabase_connected?: boolean;
+}
+
+interface LinkStatus {
+  linked: boolean;
+  email?: string;
+  userId?: string;
+  status?: string;
 }
 
 export default function LiveTestPage() {
@@ -69,6 +83,12 @@ export default function LiveTestPage() {
   const [streamKey, setStreamKey] = useState(0);
   const statusInterval = useRef<NodeJS.Timeout | null>(null);
   const detectionsInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Mobile alerts link state
+  const [linkStatus, setLinkStatus] = useState<LinkStatus>({ linked: false });
+  const [linkEmail, setLinkEmail] = useState('kanishkreddy3813@gmail.com');
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState('');
 
   // Check connection to local detector
   const checkConnection = useCallback(async () => {
@@ -237,6 +257,75 @@ export default function LiveTestPage() {
       setUploadingId(null);
     }
   };
+
+  // ─── Mobile Alerts Functions ──────────────────────────────────────────────
+
+  // Fetch current link status
+  const fetchLinkStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/live-test/link-user');
+      if (res.ok) {
+        const data = await res.json();
+        setLinkStatus(data);
+        if (data.email) setLinkEmail(data.email);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Link user email to live-test camera
+  const handleLinkUser = async () => {
+    if (!linkEmail.trim()) return;
+    setLinking(true);
+    setLinkError('');
+    try {
+      const res = await fetch('/api/live-test/link-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: linkEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLinkError(data.error || 'Failed to link');
+      } else {
+        setLinkStatus({ linked: true, email: data.email, userId: data.userId, status: 'online' });
+      }
+    } catch {
+      setLinkError('Network error');
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  // Unlink
+  const handleUnlinkUser = async () => {
+    try {
+      await fetch('/api/live-test/link-user', { method: 'DELETE' });
+      setLinkStatus({ linked: false });
+    } catch {
+      // ignore
+    }
+  };
+
+  // Toggle auto-upload on the detector
+  const handleToggleAutoUpload = async (enabled: boolean) => {
+    try {
+      await fetch(`${DETECTOR_URL}/api/auto-upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      await pollStatus();
+    } catch {
+      // ignore
+    }
+  };
+
+  // Load link status on mount
+  useEffect(() => {
+    fetchLinkStatus();
+  }, [fetchLinkStatus]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -651,6 +740,129 @@ export default function LiveTestPage() {
                         <li>Save verified detections to the main dashboard</li>
                       </ul>
                     </div>
+                  </div>
+                </div>
+
+                {/* Mobile Alerts Panel */}
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm section-fade-up" style={{ animationDelay: '350ms' }}>
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-purple-600" />
+                      <h3 className="font-semibold text-gray-900">Mobile Alerts</h3>
+                    </div>
+                    {linkStatus.linked && (
+                      <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Linked
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-5 space-y-4">
+                    {linkStatus.linked ? (
+                      // ── Linked State ──
+                      <>
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Link className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-xs font-medium text-emerald-700">Connected to Mobile App</span>
+                          </div>
+                          <p className="text-sm text-emerald-800 font-medium">{linkStatus.email}</p>
+                          <p className="text-xs text-emerald-600 mt-1">
+                            Detections will appear as realtime alerts on the mobile app.
+                          </p>
+                        </div>
+
+                        {/* Auto-Upload Toggle */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-gray-400" />
+                            <div>
+                              <p className="text-sm text-gray-700 font-medium">Auto-Sync Alerts</p>
+                              <p className="text-xs text-gray-400">Push detections to mobile app</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleToggleAutoUpload(!status?.auto_upload)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              status?.auto_upload ? 'bg-emerald-500' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 rounded-full bg-white transition-transform shadow-sm ${
+                                status?.auto_upload ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Status indicators */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className={`rounded-lg p-2 text-center ${status?.supabase_connected ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">Database</p>
+                            <p className={`text-xs font-medium ${status?.supabase_connected ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {status?.supabase_connected ? 'Connected' : 'Disconnected'}
+                            </p>
+                          </div>
+                          <div className={`rounded-lg p-2 text-center ${status?.auto_upload ? 'bg-emerald-50' : 'bg-gray-50'}`}>
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">Auto-Sync</p>
+                            <p className={`text-xs font-medium ${status?.auto_upload ? 'text-emerald-600' : 'text-gray-500'}`}>
+                              {status?.auto_upload ? 'Active' : 'Paused'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={handleUnlinkUser}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-red-600 bg-red-50 hover:bg-red-100 text-sm rounded-xl transition-all"
+                        >
+                          <Unlink className="w-3 h-3" />
+                          Unlink Account
+                        </button>
+                      </>
+                    ) : (
+                      // ── Not Linked State ──
+                      <>
+                        <p className="text-xs text-gray-500">
+                          Link your mobile app account to receive snake detection alerts in real-time on your phone.
+                        </p>
+
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wider">
+                            User Email
+                          </label>
+                          <input
+                            type="email"
+                            value={linkEmail}
+                            onChange={(e) => { setLinkEmail(e.target.value); setLinkError(''); }}
+                            placeholder="user@example.com"
+                            className="w-full bg-white border border-gray-200 text-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 transition-all"
+                          />
+                        </div>
+
+                        {linkError && (
+                          <p className="text-xs text-red-500 -mt-2">{linkError}</p>
+                        )}
+
+                        <button
+                          onClick={handleLinkUser}
+                          disabled={linking || !linkEmail.trim()}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm rounded-xl transition-all duration-200 active:scale-95 font-medium"
+                        >
+                          {linking ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              Linking...
+                            </>
+                          ) : (
+                            <>
+                              <Smartphone className="w-3.5 h-3.5" />
+                              Link Mobile Account
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

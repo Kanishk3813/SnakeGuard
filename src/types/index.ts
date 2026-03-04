@@ -239,6 +239,7 @@ export interface Camera {
   stream_port?: number;
   last_seen?: string | null;
   firmware_version?: string | null;
+  user_id?: string;
   created_at: string;
   updated_at: string;
 }

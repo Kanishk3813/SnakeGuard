@@ -40,6 +40,24 @@ VIDEOS_DIR = PROJECT_ROOT / "public" / "vids"
 OUTPUT_DIR = PROJECT_ROOT / "public" / "detections_output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+# Load environment variables from .env.local if available (for Supabase credentials)
+def load_env_file():
+    """Load key=value pairs from .env.local into os.environ"""
+    env_file = PROJECT_ROOT / ".env.local"
+    if env_file.exists():
+        print(f"📂 Loading env from {env_file}")
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and not line.startswith("//") and "=" in line:
+                    key, _, value = line.partition("=")
+                    key = key.strip()
+                    value = value.strip()
+                    if key and key not in os.environ:  # don't override existing env vars
+                        os.environ[key] = value
+
+load_env_file()
+
 # Try to import YOLO
 try:
     from ultralytics import YOLO
@@ -69,6 +87,23 @@ JPEG_QUALITY = 85
 # Supabase config (optional - for uploading detections)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", os.environ.get("NEXT_PUBLIC_SUPABASE_URL", ""))
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""))
+
+# ─── Mobile Alerts (Auto-Upload) Config ──────────────────────────────────────
+
+LIVE_TEST_DEVICE_ID = "15f5320e-6cff-4b17-b49c-70bb253307ff"  # Camera UUID (must match cameras.device_id)
+AUTO_UPLOAD_ENABLED = True                      # Auto-upload detections to Supabase
+NEXT_APP_URL = os.environ.get("NEXT_APP_URL", "http://localhost:3000")  # Next.js app URL
+DEFAULT_LATITUDE = 12.8231                     # Default lat (SRM campus)
+DEFAULT_LONGITUDE = 80.0444                    # Default lng
+
+# Try to import requests (for calling Next.js pipeline)
+try:
+    import requests as http_requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    print("⚠️  requests not installed. Auto-upload pipeline trigger disabled.")
+    print("   Install with: pip install requests")
 
 # ─── Global State ────────────────────────────────────────────────────────────
 
@@ -126,6 +161,67 @@ def init_supabase():
     except Exception as e:
         print(f"⚠️  Supabase init failed: {e}")
         return None
+
+# ─── Auto-Upload to Supabase ─────────────────────────────────────────────────
+
+def auto_upload_detection(detection_record):
+    """Auto-upload a detection to Supabase and trigger the classification pipeline.
+    Runs in a background thread so it doesn't block video processing."""
+    if not state.supabase_client:
+        print("⚠️  Supabase not configured, skipping auto-upload")
+        return
+
+    try:
+        # Upload detection image to Supabase storage
+        frame_filename = detection_record["image_path"].split("/")[-1]
+        image_path = OUTPUT_DIR / frame_filename
+        public_url = ""
+
+        if image_path.exists():
+            storage_name = f"live_test_{detection_record['id']}_{uuid.uuid4().hex[:8]}.jpg"
+            with open(image_path, "rb") as f:
+                state.supabase_client.storage.from_("snake-images").upload(
+                    storage_name, f, {"content-type": "image/jpeg"}
+                )
+            public_url = state.supabase_client.storage.from_("snake-images").get_public_url(storage_name)
+            print(f"📸 Image uploaded: {storage_name}")
+        else:
+            print(f"⚠️  Detection image not found: {image_path}")
+
+        # Insert into snake_detections with device_id for mobile app linkage
+        response = state.supabase_client.table("snake_detections").insert({
+            "timestamp": detection_record["timestamp"],
+            "confidence": detection_record["confidence"],
+            "image_url": public_url,
+            "latitude": DEFAULT_LATITUDE,
+            "longitude": DEFAULT_LONGITUDE,
+            "device_id": LIVE_TEST_DEVICE_ID,
+            "processed": False,
+        }).execute()
+
+        db_id = response.data[0]["id"] if response.data else None
+        print(f"✅ Auto-uploaded detection {detection_record['id']} → Supabase ID: {db_id}")
+
+        # Trigger the classification + incident pipeline on the Next.js server
+        if db_id and REQUESTS_AVAILABLE:
+            try:
+                pipeline_resp = http_requests.post(
+                    f"{NEXT_APP_URL}/api/detections/process",
+                    json={"detectionId": db_id},
+                    timeout=30,
+                )
+                if pipeline_resp.ok:
+                    result = pipeline_resp.json()
+                    species = result.get("classification", {}).get("species", "unknown")
+                    print(f"🧬 Pipeline OK for {db_id}: {species}")
+                else:
+                    print(f"⚠️  Pipeline returned {pipeline_resp.status_code}: {pipeline_resp.text[:200]}")
+            except Exception as e:
+                print(f"⚠️  Pipeline trigger failed (non-fatal): {e}")
+
+    except Exception as e:
+        print(f"❌ Auto-upload failed: {e}")
+
 
 # ─── Video Processing ────────────────────────────────────────────────────────
 
@@ -277,6 +373,15 @@ def process_video(video_path: str):
                         state.detections.append(detection_record)
                     
                     print(f"🐍 Detection #{state.total_detections}: {best_class} ({best_conf:.0%}) at frame {frame_count}")
+                    
+                    # Auto-upload to Supabase in background thread (for mobile app alerts)
+                    if AUTO_UPLOAD_ENABLED:
+                        upload_thread = threading.Thread(
+                            target=auto_upload_detection,
+                            args=(detection_record.copy(),),
+                            daemon=True,
+                        )
+                        upload_thread.start()
         
         # Add HUD overlay
         annotated_frame = draw_hud(annotated_frame, frame_count, total_frames)
@@ -429,6 +534,9 @@ def get_status():
         "confidence_threshold": CONFIDENCE_THRESHOLD,
         "model_loaded": state.model is not None,
         "uptime_seconds": uptime,
+        "auto_upload": AUTO_UPLOAD_ENABLED,
+        "device_id": LIVE_TEST_DEVICE_ID,
+        "supabase_connected": state.supabase_client is not None,
     })
 
 
@@ -440,6 +548,24 @@ def get_detections():
             "count": len(state.detections),
             "detections": list(reversed(state.detections)),  # newest first
         })
+
+
+@app.route("/api/auto-upload", methods=["GET", "POST"])
+def toggle_auto_upload():
+    """Get or toggle auto-upload to Supabase (for mobile app alerts)"""
+    global AUTO_UPLOAD_ENABLED
+    if request.method == "POST":
+        data = request.json or {}
+        if "enabled" in data:
+            AUTO_UPLOAD_ENABLED = bool(data["enabled"])
+            status_icon = "\u2705" if AUTO_UPLOAD_ENABLED else "\u26d4"
+            status_text = "enabled" if AUTO_UPLOAD_ENABLED else "disabled"
+            print(f"{status_icon} Auto-upload {status_text}")
+    return jsonify({
+        "auto_upload": AUTO_UPLOAD_ENABLED,
+        "device_id": LIVE_TEST_DEVICE_ID,
+        "supabase_connected": state.supabase_client is not None,
+    })
 
 
 @app.route("/api/config", methods=["POST"])
@@ -538,13 +664,15 @@ def upload_detection():
         else:
             public_url = ""
         
-        # Insert detection record
+        # Insert detection record (include device_id for mobile app linkage)
         response = state.supabase_client.table("snake_detections").insert({
             "timestamp": detection["timestamp"],
             "confidence": detection["confidence"],
             "image_url": public_url,
-            "latitude": data.get("latitude", 12.8231),  # Default: SRM campus
-            "longitude": data.get("longitude", 80.0444),
+            "latitude": data.get("latitude", DEFAULT_LATITUDE),
+            "longitude": data.get("longitude", DEFAULT_LONGITUDE),
+            "device_id": LIVE_TEST_DEVICE_ID,
+            "processed": False,
         }).execute()
         
         db_id = response.data[0]["id"] if response.data else None
@@ -576,6 +704,12 @@ if __name__ == "__main__":
         videos = [f.name for f in VIDEOS_DIR.iterdir() if f.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv")]
         print(f"   Found {len(videos)} video(s): {', '.join(videos)}")
     
+    print(f"\n📱 Mobile Alerts:")
+    print(f"   Auto-Upload:  {'✅ Enabled' if AUTO_UPLOAD_ENABLED else '❌ Disabled'}")
+    print(f"   Device ID:    {LIVE_TEST_DEVICE_ID}")
+    print(f"   Supabase:     {'✅ Connected' if state.supabase_client else '❌ Not configured'}")
+    print(f"   Next.js API:  {NEXT_APP_URL}")
+
     print(f"\n🌐 Starting server on http://localhost:5050")
     print(f"   Stream:     http://localhost:5050/stream")
     print(f"   API:        http://localhost:5050/api/videos")
