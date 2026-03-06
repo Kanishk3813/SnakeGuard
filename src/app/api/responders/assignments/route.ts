@@ -55,9 +55,16 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const responderId = searchParams.get('responder_id');
+    let responderId = searchParams.get('responder_id');
     const status = searchParams.get('status');
     const includeUnassigned = searchParams.get('include_unassigned') === 'true';
+
+    // Validate responderId is a valid UUID, otherwise use the authenticated user's ID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (responderId && !uuidRegex.test(responderId)) {
+      console.warn(`Invalid responderId "${responderId}", falling back to authenticated user: ${userId}`);
+      responderId = userId;
+    }
 
     // Get assignments - try with detection relationship first
     let assignmentsQuery = supabaseAdmin

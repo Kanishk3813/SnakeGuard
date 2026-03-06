@@ -1,0 +1,72 @@
+{
+    "expo": {
+        "name": "SnakeGuard Responder",
+        "slug": "snakeguard-responder",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "scheme": "snakeguard-responder",
+        "userInterfaceStyle": "dark",
+        "newArchEnabled": true,
+        "splash": {
+            "image": "./assets/splash-icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#1A0F05"
+        },
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.snakeguard.responder",
+            "infoPlist": {
+                "UIBackgroundModes": [
+                    "remote-notification",
+                    "location"
+                ],
+                "NSLocationWhenInUseUsageDescription": "SnakeGuard Responder needs your location to assign nearby snake detections to you.",
+                "NSLocationAlwaysAndWhenInUseUsageDescription": "SnakeGuard Responder uses your location in the background to keep your position updated for faster dispatch."
+            }
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#1A0F05"
+            },
+            "package": "com.snakeguard.responder",
+            "permissions": [
+                "NOTIFICATIONS",
+                "VIBRATE",
+                "ACCESS_FINE_LOCATION",
+                "ACCESS_COARSE_LOCATION",
+                "ACCESS_BACKGROUND_LOCATION"
+            ]
+        },
+        "plugins": [
+            "expo-router",
+            "expo-secure-store",
+            [
+                "expo-notifications",
+                {
+                    "color": "#F59E0B"
+                }
+            ],
+            [
+                "expo-location",
+                {
+                    "locationAlwaysAndWhenInUsePermission": "Allow SnakeGuard Responder to use your location for dispatch.",
+                    "locationWhenInUsePermission": "Allow SnakeGuard Responder to use your location for dispatch."
+                }
+            ],
+            "expo-font"
+        ],
+        "experiments": {
+            "typedRoutes": true
+        },
+        "extra": {
+            "router": {
+                "origin": false
+            },
+            "eas": {
+                "projectId": "your-project-id"
+            }
+        }
+    }
+}
