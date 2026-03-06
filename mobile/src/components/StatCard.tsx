@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -19,12 +19,14 @@ export function StatCard({
   subtitle,
 }: StatCardProps) {
   return (
-    <View style={styles.card}>
-      <View style={[styles.iconWrap, { backgroundColor: color + '20' }]}>
-        <Ionicons name={icon} size={18} color={color} />
+    <View style={[styles.card, shadows.sm]}>
+      <View style={styles.cardTop}>
+        <View style={[styles.iconWrap, { backgroundColor: color + '18' }]}>
+          <Ionicons name={icon} size={18} color={color} />
+        </View>
+        <Text style={styles.label}>{label}</Text>
       </View>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.value, { color }]}>{value}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
@@ -40,25 +42,33 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     minWidth: 100,
   },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   iconWrap: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  value: {
-    fontSize: fontSize.xxl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 2,
   },
   label: {
     fontSize: fontSize.xs,
     color: colors.textMuted,
+    fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    flex: 1,
+  },
+  value: {
+    fontSize: fontSize.xxxl,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 2,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: fontSize.xs,

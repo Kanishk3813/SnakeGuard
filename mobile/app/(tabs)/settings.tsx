@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDevices } from '@/hooks/useDevices';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -25,6 +25,9 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const displayName = profile?.full_name || 'User';
+  const initial = (displayName[0] || '?').toUpperCase();
+
   return (
     <ScrollView
       style={styles.container}
@@ -32,77 +35,98 @@ export default function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Profile Card */}
-      <View style={styles.profileCard}>
+      <View style={[styles.profileCard, shadows.md]}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(profile?.full_name || user?.email || '?')[0].toUpperCase()}
-          </Text>
+          <Text style={styles.avatarText}>{initial}</Text>
         </View>
         <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>
-            {profile?.full_name || 'User'}
-          </Text>
+          <Text style={styles.profileName}>{displayName}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
+          {profile?.is_responder && (
+            <View style={styles.responderBadge}>
+              <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
+              <Text style={styles.responderText}>Responder</Text>
+            </View>
+          )}
         </View>
       </View>
 
       {/* Devices Section */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>DEVICES</Text>
-        <SettingsRow
-          icon="hardware-chip-outline"
-          label="My Devices"
-          value={`${devices.length} registered`}
-          onPress={() => router.push('/devices')}
-        />
-        <SettingsRow
-          icon="add-circle-outline"
-          label="Register New Device"
-          onPress={() => router.push('/devices/add')}
-        />
+        <View style={styles.sectionCard}>
+          <SettingsRow
+            icon="hardware-chip-outline"
+            iconColor={colors.accent}
+            label="My Devices"
+            value={`${devices.length} registered`}
+            onPress={() => router.push('/devices')}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="add-circle-outline"
+            iconColor={colors.primary}
+            label="Register New Device"
+            onPress={() => router.push('/devices/add')}
+          />
+        </View>
       </View>
 
       {/* Notifications Section */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>NOTIFICATIONS</Text>
-        <SettingsRow
-          icon="notifications-outline"
-          label="Push Notifications"
-          value="Enabled"
-        />
-        <SettingsRow
-          icon="mail-outline"
-          label="Email Alerts"
-          value="Enabled"
-        />
+        <View style={styles.sectionCard}>
+          <SettingsRow
+            icon="notifications-outline"
+            iconColor={colors.info}
+            label="Push Notifications"
+            value="Enabled"
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="mail-outline"
+            iconColor={colors.primaryLight}
+            label="Email Alerts"
+            value="Enabled"
+          />
+        </View>
       </View>
 
       {/* About Section */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>ABOUT</Text>
-        <SettingsRow
-          icon="information-circle-outline"
-          label="App Version"
-          value="1.0.0"
-        />
-        <SettingsRow
-          icon="shield-checkmark-outline"
-          label="Privacy Policy"
-        />
-        <SettingsRow
-          icon="document-text-outline"
-          label="Terms of Service"
-        />
+        <View style={styles.sectionCard}>
+          <SettingsRow
+            icon="information-circle-outline"
+            iconColor={colors.textMuted}
+            label="App Version"
+            value="1.0.0"
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            iconColor={colors.textMuted}
+            label="Privacy Policy"
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="document-text-outline"
+            iconColor={colors.textMuted}
+            label="Terms of Service"
+          />
+        </View>
       </View>
 
       {/* Sign Out */}
       <Pressable
-        style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutPressed]}
+        style={({ pressed }) => [styles.signOutButton, pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }]}
         onPress={handleSignOut}
       >
         <Ionicons name="log-out-outline" size={20} color={colors.danger} />
         <Text style={styles.signOutText}>Sign Out</Text>
       </Pressable>
+
+      <Text style={styles.footerText}>SnakeGuard © 2026</Text>
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -111,11 +135,13 @@ export default function SettingsScreen() {
 
 function SettingsRow({
   icon,
+  iconColor,
   label,
   value,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
   label: string;
   value?: string;
   onPress?: () => void;
@@ -126,7 +152,9 @@ function SettingsRow({
       onPress={onPress}
       disabled={!onPress}
     >
-      <Ionicons name={icon} size={20} color={colors.textMuted} />
+      <View style={[styles.rowIconWrap, { backgroundColor: (iconColor || colors.textMuted) + '15' }]}>
+        <Ionicons name={icon} size={18} color={iconColor || colors.textMuted} />
+      </View>
       <Text style={styles.rowLabel}>{label}</Text>
       {value && <Text style={styles.rowValue}>{value}</Text>}
       {onPress && (
@@ -144,24 +172,28 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
   },
+
+  // Profile
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.lg,
     backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: spacing.xl,
     marginBottom: spacing.xxl,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
   },
   avatarText: {
     fontSize: fontSize.xxl,
@@ -172,8 +204,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileName: {
-    fontSize: fontSize.lg,
-    fontWeight: '700',
+    fontSize: fontSize.xl,
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   profileEmail: {
@@ -181,55 +213,100 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
+  responderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primaryMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+  },
+  responderText: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
+  // Sections
   section: {
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   sectionLabel: {
     fontSize: fontSize.xs,
     fontWeight: '700',
     color: colors.textDim,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginBottom: spacing.sm,
     marginLeft: 4,
   },
+  sectionCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    overflow: 'hidden',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.cardBorder,
+    marginLeft: 56,
+  },
+
+  // Row
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    marginBottom: 2,
   },
   rowPressed: {
-    opacity: 0.7,
+    backgroundColor: colors.surface,
+  },
+  rowIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowLabel: {
     flex: 1,
     fontSize: fontSize.md,
     color: colors.textPrimary,
+    fontWeight: '500',
   },
   rowValue: {
     fontSize: fontSize.sm,
     color: colors.textMuted,
   },
+
+  // Sign out
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     backgroundColor: colors.dangerMuted,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.danger + '20',
     paddingVertical: spacing.lg,
     marginTop: spacing.md,
-  },
-  signOutPressed: {
-    opacity: 0.7,
   },
   signOutText: {
     fontSize: fontSize.md,
     fontWeight: '700',
     color: colors.danger,
+  },
+
+  footerText: {
+    textAlign: 'center',
+    fontSize: fontSize.xs,
+    color: colors.textDim,
+    marginTop: spacing.xxl,
   },
 });

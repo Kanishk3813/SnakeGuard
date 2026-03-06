@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { colors, fontSize } from '@/lib/theme';
 import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
 
@@ -49,18 +49,21 @@ export default function TabLayout() {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.tabBarBorder,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
+          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: fontSize.xs,
           fontWeight: '600',
+          letterSpacing: 0.2,
         },
         headerStyle: {
-          backgroundColor: colors.card,
+          backgroundColor: colors.backgroundLight,
           shadowColor: 'transparent',
           elevation: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.tabBarBorder,
         },
         headerTintColor: colors.textPrimary,
         headerTitleStyle: {
@@ -87,6 +90,20 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon
               name={focused ? 'videocam' : 'videocam-outline'}
+              color={color}
+              focused={focused}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="identify"
+        options={{
+          title: 'Identify',
+          headerTitle: 'Identify Snake',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? 'scan' : 'scan-outline'}
               color={color}
               focused={focused}
             />
@@ -139,7 +156,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 3,
   },
   activeIndicator: {
     width: 4,
@@ -150,14 +167,16 @@ const styles = StyleSheet.create({
   badge: {
     position: 'absolute',
     top: -4,
-    right: -8,
+    right: -10,
     backgroundColor: colors.danger,
     borderRadius: 10,
-    minWidth: 16,
-    height: 16,
+    minWidth: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: colors.tabBar,
   },
   badgeText: {
     color: '#fff',

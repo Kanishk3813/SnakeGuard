@@ -19,7 +19,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "NSCameraUsageDescription": "SnakeGuard needs camera access so you can photograph and identify snakes from a safe distance."
       }
     },
     "android": {
@@ -30,7 +31,8 @@
       "package": "com.snakeguard.app",
       "permissions": [
         "NOTIFICATIONS",
-        "VIBRATE"
+        "VIBRATE",
+        "CAMERA"
       ]
     },
     "plugins": [
@@ -40,6 +42,13 @@
         "expo-notifications",
         {
           "color": "#10B981"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SnakeGuard needs photo library access so you can select snake images for identification.",
+          "cameraPermission": "SnakeGuard needs camera access so you can photograph and identify snakes from a safe distance."
         }
       ],
       "expo-font"

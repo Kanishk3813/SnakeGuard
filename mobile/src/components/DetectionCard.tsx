@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 import { SnakeDetection } from '@/lib/types';
 
 interface DetectionCardProps {
@@ -37,68 +37,86 @@ export function DetectionCard({ detection, onPress, compact = false }: Detection
         style={({ pressed }) => [styles.compactCard, pressed && styles.pressed]}
         onPress={onPress}
       >
-        <View style={[styles.riskDot, { backgroundColor: riskColor }]} />
+        <View style={[styles.riskStripe, { backgroundColor: riskColor }]} />
         <View style={styles.compactContent}>
           <Text style={styles.compactSpecies} numberOfLines={1}>
             {detection.species || 'Snake Detected'}
           </Text>
-          <Text style={styles.compactTime}>{formatTime(detection.timestamp)}</Text>
+          <View style={styles.compactMeta}>
+            <Ionicons name="time-outline" size={11} color={colors.textDim} />
+            <Text style={styles.compactTime}>{formatTime(detection.timestamp)}</Text>
+          </View>
         </View>
-        <Text style={styles.compactConfidence}>
-          {(detection.confidence * 100).toFixed(0)}%
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
+        <View style={styles.compactRight}>
+          <Text style={[styles.compactConfidence, { color: riskColor }]}>
+            {(detection.confidence * 100).toFixed(0)}%
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.textDim} />
+        </View>
       </Pressable>
     );
   }
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, shadows.sm, pressed && styles.pressed]}
       onPress={onPress}
     >
+      {/* Image */}
       {detection.image_url ? (
-        <Image
-          source={{ uri: detection.image_url }}
-          style={styles.image}
-          contentFit="cover"
-          transition={200}
-        />
+        <View style={styles.imageWrap}>
+          <Image
+            source={{ uri: detection.image_url }}
+            style={styles.image}
+            contentFit="cover"
+            transition={200}
+          />
+          {/* Risk badge overlay */}
+          <View style={[styles.overlayBadge, { backgroundColor: riskColor }]}>
+            <Text style={styles.overlayBadgeText}>{riskLevel.toUpperCase()}</Text>
+          </View>
+        </View>
       ) : (
         <View style={[styles.image, styles.placeholderImage]}>
           <Ionicons name="image-outline" size={32} color={colors.textDim} />
+          <View style={[styles.overlayBadge, { backgroundColor: riskColor, top: spacing.sm, right: spacing.sm }]}>
+            <Text style={styles.overlayBadgeText}>{riskLevel.toUpperCase()}</Text>
+          </View>
         </View>
       )}
 
+      {/* Content */}
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.species} numberOfLines={1}>
-            {detection.species || 'Unclassified Detection'}
-          </Text>
-          <View style={[styles.riskBadge, { backgroundColor: riskBg }]}>
-            <Text style={[styles.riskText, { color: riskColor }]}>
-              {riskLevel.toUpperCase()}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.species} numberOfLines={1}>
+          {detection.species || 'Unclassified Detection'}
+        </Text>
 
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Ionicons name="analytics-outline" size={13} color={colors.textMuted} />
             <Text style={styles.metaText}>
-              {(detection.confidence * 100).toFixed(1)}% confidence
+              {(detection.confidence * 100).toFixed(1)}%
             </Text>
           </View>
           {detection.venomous !== undefined && (
-            <View style={styles.metaItem}>
+            <View
+              style={[
+                styles.venomPill,
+                {
+                  backgroundColor: detection.venomous
+                    ? colors.dangerMuted
+                    : colors.primaryMuted,
+                },
+              ]}
+            >
               <Ionicons
                 name={detection.venomous ? 'warning' : 'shield-checkmark'}
-                size={13}
+                size={11}
                 color={detection.venomous ? colors.danger : colors.primary}
               />
               <Text
                 style={[
-                  styles.metaText,
+                  styles.venomPillText,
                   { color: detection.venomous ? colors.danger : colors.primary },
                 ]}
               >
@@ -130,55 +148,57 @@ export function DetectionCard({ detection, onPress, compact = false }: Detection
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     overflow: 'hidden',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   pressed: {
     opacity: 0.85,
     transform: [{ scale: 0.985 }],
   },
+  imageWrap: {
+    position: 'relative',
+  },
   image: {
     width: '100%',
-    height: 180,
+    height: 190,
     backgroundColor: colors.surface,
   },
   placeholderImage: {
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  overlayBadge: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.xs,
+  },
+  overlayBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   content: {
     padding: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   species: {
     fontSize: fontSize.lg,
     fontWeight: '700',
     color: colors.textPrimary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  riskBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-  },
-  riskText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
   },
   metaRow: {
     flexDirection: 'row',
-    gap: spacing.lg,
-    marginBottom: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   metaItem: {
     flexDirection: 'row',
@@ -188,6 +208,18 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: fontSize.sm,
     color: colors.textMuted,
+  },
+  venomPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  venomPillText: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
@@ -200,6 +232,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textDim,
   },
+
   // Compact variant
   compactCard: {
     flexDirection: 'row',
@@ -208,14 +241,15 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingRight: spacing.md,
     marginBottom: spacing.sm,
-    gap: spacing.md,
+    overflow: 'hidden',
   },
-  riskDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  riskStripe: {
+    width: 3,
+    alignSelf: 'stretch',
+    marginRight: spacing.md,
   },
   compactContent: {
     flex: 1,
@@ -225,14 +259,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
+  compactMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
   compactTime: {
     fontSize: fontSize.xs,
     color: colors.textDim,
-    marginTop: 2,
+  },
+  compactRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   compactConfidence: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    fontWeight: '700',
   },
 });

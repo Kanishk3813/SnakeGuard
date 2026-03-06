@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
 import { AlertItem } from '@/components/AlertItem';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 import { Alert } from '@/lib/types';
 
 export default function AlertsScreen() {
@@ -21,7 +21,6 @@ export default function AlertsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Alerts are realtime, just a brief delay to show refresh
     await new Promise((r) => setTimeout(r, 500));
     setRefreshing(false);
   };
@@ -43,11 +42,14 @@ export default function AlertsScreen() {
           <Text style={styles.headerSubtitle}>
             {unreadCount > 0
               ? `${unreadCount} unread alert${unreadCount !== 1 ? 's' : ''}`
-              : 'All caught up'}
+              : 'All caught up ✓'}
           </Text>
         </View>
         {unreadCount > 0 && (
-          <Pressable style={styles.markAllButton} onPress={markAllRead}>
+          <Pressable
+            style={({ pressed }) => [styles.markAllButton, pressed && { opacity: 0.7 }]}
+            onPress={markAllRead}
+          >
             <Ionicons name="checkmark-done" size={16} color={colors.primary} />
             <Text style={styles.markAllText}>Mark All Read</Text>
           </Pressable>
@@ -55,9 +57,15 @@ export default function AlertsScreen() {
       </View>
 
       {/* Live indicator */}
-      <View style={styles.liveBar}>
-        <View style={styles.liveDot} />
+      <View style={[styles.liveBar, shadows.sm]}>
+        <View style={styles.livePulseOuter}>
+          <View style={styles.liveDot} />
+        </View>
         <Text style={styles.liveText}>Realtime monitoring active</Text>
+        <View style={styles.liveCountWrap}>
+          <Text style={styles.liveCount}>{alerts.length}</Text>
+          <Text style={styles.liveCountLabel}>total</Text>
+        </View>
       </View>
     </View>
   );
@@ -65,7 +73,7 @@ export default function AlertsScreen() {
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconWrap}>
-        <Ionicons name="notifications-off-outline" size={56} color={colors.textDim} />
+        <Ionicons name="notifications-off-outline" size={48} color={colors.textDim} />
       </View>
       <Text style={styles.emptyTitle}>No Alerts Yet</Text>
       <Text style={styles.emptyText}>
@@ -112,17 +120,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   headerTitle: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.xxl,
     fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: fontSize.sm,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
   },
   markAllButton: {
     flexDirection: 'row',
@@ -132,6 +141,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     backgroundColor: colors.primaryMuted,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
   markAllText: {
     fontSize: fontSize.sm,
@@ -143,11 +154,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  livePulseOuter: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   liveDot: {
     width: 8,
@@ -156,9 +175,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   liveText: {
+    flex: 1,
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+  liveCountWrap: {
+    alignItems: 'center',
+  },
+  liveCount: {
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
+  liveCountLabel: {
+    fontSize: 9,
+    color: colors.textDim,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   emptyState: {
     alignItems: 'center',
@@ -171,6 +207,8 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,

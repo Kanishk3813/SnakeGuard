@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useDevices } from '@/hooks/useDevices';
 import { LiveStreamView } from '@/components/LiveStreamView';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 import { Device } from '@/lib/types';
 
 export default function FeedScreen() {
@@ -39,10 +39,10 @@ export default function FeedScreen() {
       <View style={styles.streamFullScreen}>
         <LiveStreamView streamUrl={streamUrl} deviceName={selectedDevice.name} />
         <Pressable
-          style={styles.backButton}
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}
           onPress={() => setSelectedDevice(null)}
         >
-          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
           <Text style={styles.backButtonText}>Back to Devices</Text>
         </Pressable>
       </View>
@@ -62,19 +62,39 @@ export default function FeedScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
+      {/* Summary bar */}
+      <View style={[styles.summaryBar, shadows.sm]}>
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryValue, { color: colors.primary }]}>{onlineDevices.length}</Text>
+          <Text style={styles.summaryLabel}>Online</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{offlineDevices.length}</Text>
+          <Text style={styles.summaryLabel}>Offline</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{devices.length}</Text>
+          <Text style={styles.summaryLabel}>Total</Text>
+        </View>
+      </View>
+
       {/* Empty State */}
       {devices.length === 0 && !loading && (
         <View style={styles.emptyState}>
-          <Ionicons name="videocam-off-outline" size={56} color={colors.textDim} />
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="videocam-off-outline" size={48} color={colors.textDim} />
+          </View>
           <Text style={styles.emptyTitle}>No Cameras</Text>
           <Text style={styles.emptyText}>
             Register your Raspberry Pi device to view live camera feeds.
           </Text>
           <Pressable
-            style={styles.addButton}
+            style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
             onPress={() => router.push('/devices/add')}
           >
-            <Ionicons name="add" size={20} color="#fff" />
+            <Ionicons name="add" size={18} color="#fff" />
             <Text style={styles.addButtonText}>Register Device</Text>
           </Pressable>
         </View>
@@ -85,7 +105,9 @@ export default function FeedScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.statusIndicator}>
-              <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
+              <View style={styles.onlinePulseOuter}>
+                <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
+              </View>
               <Text style={styles.sectionTitle}>
                 Online ({onlineDevices.length})
               </Text>
@@ -95,12 +117,12 @@ export default function FeedScreen() {
           {onlineDevices.map((device) => (
             <Pressable
               key={device.id}
-              style={({ pressed }) => [styles.deviceCard, pressed && styles.devicePressed]}
+              style={({ pressed }) => [styles.deviceCard, shadows.sm, pressed && styles.devicePressed]}
               onPress={() => setSelectedDevice(device)}
             >
               <View style={styles.deviceRow}>
                 <View style={[styles.deviceIcon, { backgroundColor: colors.primaryMuted }]}>
-                  <Ionicons name="videocam" size={24} color={colors.primary} />
+                  <Ionicons name="videocam" size={22} color={colors.primary} />
                 </View>
                 <View style={styles.deviceInfo}>
                   <Text style={styles.deviceName}>{device.name}</Text>
@@ -109,13 +131,12 @@ export default function FeedScreen() {
                   </Text>
                 </View>
                 <View style={styles.playButton}>
-                  <Ionicons name="play" size={20} color={colors.primary} />
+                  <Ionicons name="play" size={18} color="#fff" />
                 </View>
               </View>
 
-              {/* Preview placeholder */}
               <View style={styles.previewContainer}>
-                <Ionicons name="tv-outline" size={36} color={colors.textDim} />
+                <Ionicons name="tv-outline" size={32} color={colors.textDim} />
                 <Text style={styles.previewText}>Tap to view live stream</Text>
               </View>
             </Pressable>
@@ -139,7 +160,7 @@ export default function FeedScreen() {
             <View key={device.id} style={[styles.deviceCard, styles.deviceOffline]}>
               <View style={styles.deviceRow}>
                 <View style={[styles.deviceIcon, { backgroundColor: colors.surface }]}>
-                  <Ionicons name="videocam-off" size={22} color={colors.textDim} />
+                  <Ionicons name="videocam-off" size={20} color={colors.textDim} />
                 </View>
                 <View style={styles.deviceInfo}>
                   <Text style={[styles.deviceName, { color: colors.textMuted }]}>
@@ -180,7 +201,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
@@ -190,17 +211,62 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
+
+  // Summary
+  summaryBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: fontSize.xl,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  summaryLabel: {
+    fontSize: fontSize.xs,
+    color: colors.textDim,
+    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: colors.cardBorder,
+    marginVertical: 4,
+  },
+
+  // Empty
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: 60,
     gap: spacing.md,
+  },
+  emptyIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontSize: fontSize.xl,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginTop: spacing.md,
   },
   emptyText: {
     fontSize: fontSize.sm,
@@ -214,7 +280,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.full,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     marginTop: spacing.md,
@@ -224,6 +290,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+
+  // Section
   section: {
     marginBottom: spacing.xl,
   },
@@ -235,6 +303,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  onlinePulseOuter: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statusDot: {
     width: 8,
     height: 8,
@@ -245,16 +321,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
+
+  // Device cards
   deviceCard: {
     backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
   deviceOffline: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   devicePressed: {
     opacity: 0.85,
@@ -266,8 +344,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   deviceIcon: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -289,7 +367,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -297,10 +375,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     height: 140,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   previewText: {
     fontSize: fontSize.sm,

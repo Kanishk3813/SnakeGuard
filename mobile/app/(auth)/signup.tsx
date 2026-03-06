@@ -13,7 +13,7 @@ import {
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 
 export default function SignupScreen() {
   const { signUp } = useAuth();
@@ -58,7 +58,7 @@ export default function SignupScreen() {
   if (success) {
     return (
       <View style={[styles.container, styles.successContainer]}>
-        <View style={styles.successIcon}>
+        <View style={[styles.successIconWrap, shadows.glow(colors.primary)]}>
           <Ionicons name="checkmark-circle" size={64} color={colors.primary} />
         </View>
         <Text style={styles.successTitle}>Account Created!</Text>
@@ -66,8 +66,8 @@ export default function SignupScreen() {
           Please check your email to verify your account, then sign in.
         </Text>
         <Link href="/(auth)/login" asChild>
-          <Pressable style={styles.signInButton}>
-            <Text style={styles.signInButtonText}>Go to Sign In</Text>
+          <Pressable style={[styles.signUpButton, shadows.glow(colors.primary)]}>
+            <Text style={styles.signUpButtonText}>Go to Sign In</Text>
           </Pressable>
         </Link>
       </View>
@@ -86,7 +86,7 @@ export default function SignupScreen() {
       >
         {/* Header */}
         <View style={styles.headerSection}>
-          <View style={styles.logoContainer}>
+          <View style={[styles.logoContainer, shadows.glow(colors.primary)]}>
             <Text style={styles.logoEmoji}>🐍</Text>
           </View>
           <Text style={styles.title}>Create Account</Text>
@@ -96,7 +96,7 @@ export default function SignupScreen() {
         </View>
 
         {/* Form */}
-        <View style={styles.formSection}>
+        <View style={[styles.formCard, shadows.md]}>
           {error ? (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={16} color={colors.danger} />
@@ -177,9 +177,10 @@ export default function SignupScreen() {
 
           <Pressable
             style={({ pressed }) => [
-              styles.signInButton,
-              pressed && styles.signInButtonPressed,
-              loading && styles.signInButtonDisabled,
+              styles.signUpButton,
+              shadows.glow(colors.primary),
+              pressed && styles.signUpButtonPressed,
+              loading && styles.signUpButtonDisabled,
             ]}
             onPress={handleSignUp}
             disabled={loading}
@@ -187,18 +188,18 @@ export default function SignupScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.signInButtonText}>Create Account</Text>
+              <Text style={styles.signUpButtonText}>Create Account</Text>
             )}
           </Pressable>
+        </View>
 
-          <View style={styles.signUpRow}>
-            <Text style={styles.signUpText}>Already have an account? </Text>
-            <Link href="/(auth)/login" asChild>
-              <Pressable>
-                <Text style={styles.signUpLink}>Sign In</Text>
-              </Pressable>
-            </Link>
-          </View>
+        <View style={styles.signInRow}>
+          <Text style={styles.signInText}>Already have an account? </Text>
+          <Link href="/(auth)/login" asChild>
+            <Pressable>
+              <Text style={styles.signInLink}>Sign In</Text>
+            </Pressable>
+          </Link>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -221,29 +222,38 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxl,
   },
   logoContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 72,
+    height: 72,
+    borderRadius: 22,
     backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
   logoEmoji: {
-    fontSize: 32,
+    fontSize: 36,
   },
   title: {
     fontSize: fontSize.xxl,
     fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: fontSize.sm,
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: 4,
+    lineHeight: 20,
   },
-  formSection: {
+  formCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xxl,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.xxl,
     width: '100%',
   },
   errorContainer: {
@@ -254,6 +264,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.danger + '20',
   },
   errorText: {
     fontSize: fontSize.sm,
@@ -273,7 +285,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.inputBg,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.inputBorder,
     paddingHorizontal: spacing.lg,
@@ -285,35 +297,36 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textPrimary,
   },
-  signInButton: {
+  signUpButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
-  signInButtonPressed: {
+  signUpButtonPressed: {
     backgroundColor: colors.primaryDark,
+    transform: [{ scale: 0.98 }],
   },
-  signInButtonDisabled: {
+  signUpButtonDisabled: {
     opacity: 0.7,
   },
-  signInButtonText: {
+  signUpButtonText: {
     fontSize: fontSize.lg,
     fontWeight: '700',
     color: '#fff',
   },
-  signUpRow: {
+  signInRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: spacing.xxl,
   },
-  signUpText: {
+  signInText: {
     fontSize: fontSize.md,
     color: colors.textMuted,
   },
-  signUpLink: {
+  signInLink: {
     fontSize: fontSize.md,
     fontWeight: '700',
     color: colors.primary,
@@ -324,7 +337,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.xxxl,
   },
-  successIcon: {
+  successIconWrap: {
     marginBottom: spacing.xl,
   },
   successTitle: {
@@ -332,6 +345,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
+    letterSpacing: -0.5,
   },
   successText: {
     fontSize: fontSize.md,

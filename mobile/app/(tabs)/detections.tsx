@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,19 +36,79 @@ export default function DetectionsScreen() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      {/* Risk Level Filters */}
-      <ScrollableFilters selected={selectedFilter} onSelect={setSelectedFilter} />
+      {/* Summary stats */}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>{detections.length}</Text>
+          <Text style={styles.summaryLabel}>Total</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryValue, { color: colors.danger }]}>
+            {detections.filter((d) => d.risk_level === 'critical' || d.risk_level === 'high').length}
+          </Text>
+          <Text style={styles.summaryLabel}>High Risk</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryValue, { color: colors.primary }]}>
+            {detections.filter((d) => d.venomous === false).length}
+          </Text>
+          <Text style={styles.summaryLabel}>Non-venom</Text>
+        </View>
+      </View>
 
-      <Text style={styles.resultCount}>
-        {filteredDetections.length} detection{filteredDetections.length !== 1 ? 's' : ''}
-      </Text>
+      {/* Filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterScroll}
+      >
+        {RISK_FILTERS.map((filter) => {
+          const isActive = selectedFilter === filter;
+          const chipColor =
+            filter === 'all' ? colors.primary : colors.risk[filter] || colors.primary;
+
+          return (
+            <Pressable
+              key={filter}
+              style={[
+                styles.filterChip,
+                isActive && { backgroundColor: chipColor + '20', borderColor: chipColor },
+              ]}
+              onPress={() => setSelectedFilter(filter)}
+            >
+              {filter !== 'all' && (
+                <View
+                  style={[styles.filterDot, { backgroundColor: chipColor }]}
+                />
+              )}
+              <Text
+                style={[
+                  styles.filterText,
+                  isActive && { color: chipColor, fontWeight: '700' },
+                ]}
+              >
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </Text>
+              {isActive && (
+                <Text style={[styles.filterCount, { color: chipColor }]}>
+                  {filteredDetections.length}
+                </Text>
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 
   const renderEmpty = () =>
     !loading ? (
       <View style={styles.emptyState}>
-        <Ionicons name="search-outline" size={56} color={colors.textDim} />
+        <View style={styles.emptyIconWrap}>
+          <Ionicons name="search-outline" size={48} color={colors.textDim} />
+        </View>
         <Text style={styles.emptyTitle}>No Detections</Text>
         <Text style={styles.emptyText}>
           {selectedFilter !== 'all'
@@ -79,49 +140,6 @@ export default function DetectionsScreen() {
   );
 }
 
-function ScrollableFilters({
-  selected,
-  onSelect,
-}: {
-  selected: string;
-  onSelect: (f: string) => void;
-}) {
-  return (
-    <View style={styles.filterRow}>
-      {RISK_FILTERS.map((filter) => {
-        const isActive = selected === filter;
-        const chipColor =
-          filter === 'all' ? colors.primary : colors.risk[filter] || colors.primary;
-
-        return (
-          <Pressable
-            key={filter}
-            style={[
-              styles.filterChip,
-              isActive && { backgroundColor: chipColor + '25', borderColor: chipColor },
-            ]}
-            onPress={() => onSelect(filter)}
-          >
-            {filter !== 'all' && (
-              <View
-                style={[styles.filterDot, { backgroundColor: chipColor }]}
-              />
-            )}
-            <Text
-              style={[
-                styles.filterText,
-                isActive && { color: chipColor, fontWeight: '700' },
-              ]}
-            >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -134,11 +152,45 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing.lg,
   },
-  filterRow: {
+
+  // Summary
+  summaryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: fontSize.xxl,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  summaryLabel: {
+    fontSize: fontSize.xs,
+    color: colors.textDim,
+    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: colors.cardBorder,
+    marginVertical: 4,
+  },
+
+  // Filters
+  filterScroll: {
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    paddingRight: spacing.lg,
   },
   filterChip: {
     flexDirection: 'row',
@@ -161,21 +213,34 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '500',
   },
-  resultCount: {
+  filterCount: {
     fontSize: fontSize.xs,
-    color: colors.textDim,
+    fontWeight: '700',
+    marginLeft: 2,
   },
+
+  // Empty
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
     gap: spacing.md,
   },
+  emptyIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
   emptyTitle: {
     fontSize: fontSize.xl,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginTop: spacing.md,
   },
   emptyText: {
     fontSize: fontSize.sm,

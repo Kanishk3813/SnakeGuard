@@ -8,15 +8,16 @@ import {
   Pressable,
   Linking,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { SnakeDetection, IncidentAssignment } from '@/lib/types';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 
 export default function DetectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [detection, setDetection] = useState<SnakeDetection | null>(null);
   const [assignment, setAssignment] = useState<IncidentAssignment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,6 +78,7 @@ export default function DetectionDetailScreen() {
 
   const riskLevel = detection.risk_level || 'low';
   const riskColor = colors.risk[riskLevel] || colors.risk.low;
+  const isUnclassified = !detection.species;
 
   return (
     <ScrollView
@@ -96,6 +98,25 @@ export default function DetectionDetailScreen() {
         <View style={[styles.heroImage, styles.placeholderImage]}>
           <Ionicons name="image-outline" size={48} color={colors.textDim} />
         </View>
+      )}
+
+      {/* Classify with Phone Camera CTA — shown when species not classified */}
+      {isUnclassified && (
+        <Pressable
+          style={({ pressed }) => [styles.classifyCta, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+          onPress={() => router.push('/(tabs)/identify')}
+        >
+          <View style={styles.classifyCtaIcon}>
+            <Ionicons name="camera" size={22} color="#fff" />
+          </View>
+          <View style={styles.classifyCtaContent}>
+            <Text style={styles.classifyCtaTitle}>Species Not Classified</Text>
+            <Text style={styles.classifyCtaSubtitle}>
+              Camera quality too low? Take a clearer photo to identify the species.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+        </Pressable>
       )}
 
       {/* Main Info Card */}
@@ -534,5 +555,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'capitalize',
+  },
+  classifyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary + '50',
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  classifyCtaIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  classifyCtaContent: {
+    flex: 1,
+  },
+  classifyCtaTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  classifyCtaSubtitle: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    lineHeight: 16,
   },
 });

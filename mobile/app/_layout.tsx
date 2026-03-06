@@ -53,7 +53,7 @@ function RootLayoutNav() {
           options={{
             headerShown: true,
             headerTitle: 'Detection Details',
-            headerStyle: { backgroundColor: colors.card },
+            headerStyle: { backgroundColor: colors.backgroundLight },
             headerTintColor: colors.textPrimary,
             headerTitleStyle: { fontWeight: '600' },
             presentation: 'card',
@@ -64,7 +64,7 @@ function RootLayoutNav() {
           options={{
             headerShown: true,
             headerTitle: 'My Devices',
-            headerStyle: { backgroundColor: colors.card },
+            headerStyle: { backgroundColor: colors.backgroundLight },
             headerTintColor: colors.textPrimary,
             headerTitleStyle: { fontWeight: '600' },
           }}

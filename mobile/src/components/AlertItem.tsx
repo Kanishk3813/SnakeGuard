@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, spacing, fontSize } from '@/lib/theme';
+import { colors, borderRadius, spacing, fontSize, shadows } from '@/lib/theme';
 import { Alert } from '@/lib/types';
 
 interface AlertItemProps {
@@ -35,16 +35,20 @@ export function AlertItem({ alert, onPress }: AlertItemProps) {
     <Pressable
       style={({ pressed }) => [
         styles.container,
+        shadows.sm,
         !read && styles.unread,
         pressed && styles.pressed,
       ]}
       onPress={onPress}
     >
+      {/* Left accent */}
+      {!read && <View style={[styles.unreadStripe, { backgroundColor: riskColor }]} />}
+
       <View style={styles.row}>
-        <View style={[styles.iconWrap, { backgroundColor: riskColor + '20' }]}>
+        <View style={[styles.iconWrap, { backgroundColor: riskColor + '18' }]}>
           <Ionicons
             name={riskLevel === 'critical' || riskLevel === 'high' ? 'warning' : 'alert-circle'}
-            size={20}
+            size={22}
             color={riskColor}
           />
         </View>
@@ -54,20 +58,24 @@ export function AlertItem({ alert, onPress }: AlertItemProps) {
             <Text style={[styles.title, !read && styles.titleUnread]} numberOfLines={1}>
               {detection.species || 'Snake Detected'}
             </Text>
-            {!read && <View style={styles.unreadDot} />}
+            {!read && <View style={[styles.unreadDot, { backgroundColor: riskColor }]} />}
           </View>
 
           <Text style={styles.body} numberOfLines={2}>
             {detection.venomous ? '⚠️ Venomous' : '✓ Non-venomous'} ·{' '}
             {(detection.confidence * 100).toFixed(0)}% confidence
             {detection.classification_description
-              ? ` · ${detection.classification_description.substring(0, 60)}...`
+              ? ` · ${detection.classification_description.substring(0, 50)}…`
               : ''}
           </Text>
 
           <View style={styles.footer}>
-            <Text style={styles.time}>{formatTime(timestamp)}</Text>
-            <View style={[styles.riskPill, { backgroundColor: riskColor + '20' }]}>
+            <View style={styles.timeRow}>
+              <Ionicons name="time-outline" size={11} color={colors.textDim} />
+              <Text style={styles.time}>{formatTime(timestamp)}</Text>
+            </View>
+            <View style={[styles.riskPill, { backgroundColor: riskColor + '18' }]}>
+              <View style={[styles.riskPillDot, { backgroundColor: riskColor }]} />
               <Text style={[styles.riskPillText, { color: riskColor }]}>
                 {riskLevel.toUpperCase()}
               </Text>
@@ -75,7 +83,7 @@ export function AlertItem({ alert, onPress }: AlertItemProps) {
           </View>
         </View>
 
-        <Ionicons name="chevron-forward" size={18} color={colors.textDim} />
+        <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
       </View>
     </Pressable>
   );
@@ -87,25 +95,30 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    padding: spacing.lg,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
   },
   unread: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardElevated,
+    borderColor: colors.borderLight,
   },
   pressed: {
     opacity: 0.85,
+    transform: [{ scale: 0.985 }],
+  },
+  unreadStripe: {
+    height: 3,
+    width: '100%',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    padding: spacing.lg,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
+    width: 46,
+    height: 46,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -125,13 +138,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   titleUnread: {
-    fontWeight: '700',
+    fontWeight: '800',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
   },
   body: {
     fontSize: fontSize.sm,
@@ -145,14 +157,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: spacing.sm,
   },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   time: {
     fontSize: fontSize.xs,
     color: colors.textDim,
   },
   riskPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: borderRadius.full,
+  },
+  riskPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   riskPillText: {
     fontSize: 10,
